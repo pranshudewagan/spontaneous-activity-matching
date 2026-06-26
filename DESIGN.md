@@ -2,7 +2,7 @@
 
 The visual and product design language for the app. Read this when building any screen or component so the app stays coherent across phases. `CLAUDE.md` holds the rules; this holds the feel.
 
-> The palette and type scale below are a **starting proposal** — change them freely. The principles and anti-patterns are the parts worth keeping stable.
+> The principles and anti-patterns are the parts worth keeping stable. The palette and type choices below are locked in — change them only deliberately.
 
 ## Product feel — the north star
 The product is *spontaneous coordination*, not engagement. Every design choice should serve "help two people make a plan happen," not "keep someone in the app." Five principles:
@@ -38,36 +38,39 @@ Each is fine *if deliberately chosen for a reason*; none should be a default you
 
 **Then remove one thing.** Once a screen reads as done, cut the least necessary element. Restraint is what separates intentional from busy.
 
-## Color (a grounded direction — critique, then make it yours)
-Define everything as tokens (never hardcode hex in screens) and plan dark mode from the start. The brand trio below is one deliberate direction — "magic hour," the late-afternoon-into-evening window when plans actually form — chosen to escape the cream+terracotta default. Run it through the critique above before committing; the functional tokens are stable regardless of brand.
+## Color
+Define everything as tokens (never hardcode hex in screens). The app is light mode only.
 
-Brand (derive from your chosen direction):
+**Direction: sunset ocean.** Warm-led — the coral/orange of a horizon sunset is primary; deep ocean teal is the cool contrast accent. Airbnb-clean layout with a faint warm tint on the background instead of flat white. Chosen because it's grounded in the product's world (golden hour, going outside, the ocean/outdoors), avoids the three AI-default clusters, and the warm/cool tension gives it visual life without being loud.
+
+Brand:
 | Token | Hex | Use |
 |---|---|---|
-| `action` | `#FB8B24` | Primary CTAs, swipe-right, "I'm in" — warm, energetic, not terracotta |
-| `accent` | `#3CAEA3` | Trust/safety cues, info, links |
-| `bg` | `#F5F4F7` | App background — a faint cool tint, deliberately not cream |
+| `action` | `#F4845F` | Primary CTAs, swipe-right, "I'm in" — sunset coral |
+| `accent` | `#2AAFA8` | Trust/safety cues, info, links — ocean teal |
+| `bg` | `#FFFAF8` | App background — faint warm tint, not cream |
 
-Functional (stable):
+Functional:
 | Token | Hex | Use |
 |---|---|---|
-| `ink` | `#16151A` | Primary text |
-| `muted` | `#6A6770` | Secondary text, captions |
+| `ink` | `#1A100D` | Primary text |
+| `muted` | `#7A6560` | Secondary text, captions |
 | `surface` | `#FFFFFF` | Cards, sheets |
-| `line` | `#E6E4EA` | Borders, dividers |
-| `success` | `#2E9E6B` | Accepted, confirmations |
-| `warning` | `#E0972A` | Waitlist, soft cautions |
-| `danger` | `#D14545` | Remove, block, destructive |
+| `line` | `#EDE5E1` | Borders, dividers |
+| `success` | `#1E9E8E` | Accepted, confirmations — ocean-tinted |
+| `warning` | `#E09020` | Waitlist, soft cautions |
+| `danger` | `#D13E2A` | Remove, block, destructive — warm red, distinct from coral |
 
-Don't use `danger` red for anything routine — reserve it for destructive/safety actions so it keeps its weight.
+Don't use `danger` for anything routine — reserve it for destructive/safety actions so it keeps its weight. Don't let `action` coral drift toward terracotta — it should read warm-orange, not brick.
 
-## Typography (a deliberate pairing, not system-everywhere)
-Type is where personality lives, so don't let the identity be the default system font on every line. Pick a pairing:
-- **Display** — a characterful face with a point of view, used *with restraint* for the wordmark, screen titles, and the activity title. This is the type moment people remember; explore faces with real character rather than the obvious defaults (Inter/Roboto/SF as-is).
-- **Body** — a clean, highly legible face for descriptions, chat, and forms. The platform system font is a fine, fast choice *here*, where legibility beats personality.
-- **Caption/data** — can share the body face.
+## Typography
+- **Display — Plus Jakarta Sans** (slightly editorial, confident, not corporate). Used *with restraint* for screen titles and the activity title on detail. This is the type moment that makes the app feel distinctive; don't use it for body copy.
+- **Body — system font** (SF Pro on iOS, Roboto on Android). Fast, legible, invisible — right for descriptions, chat, and forms where legibility beats personality.
+- **Caption/data** — shares the body face.
 
-Tradeoff to weigh: a custom display face adds a little bundle/load, so confine it to brand moments and keep body native for performance. Three weights only: 400 / 500 / 600. Sentence case everywhere; no all-caps labels.
+Load Plus Jakarta Sans via `expo-google-fonts` (deferred until the font pass — placeholder system font until then). Confine it to display moments to keep bundle impact minimal.
+
+Three weights only: 400 / 500 / 600. Sentence case everywhere; no all-caps labels.
 
 | Style | Size / weight | Use |
 |---|---|---|
@@ -104,7 +107,7 @@ Tradeoff to weigh: a custom display face adds a little bundle/load, so confine i
 - Contrast: body text and essential UI meet WCAG AA against their background.
 - Support Dynamic Type / font scaling — don't pin font sizes.
 - Every icon-only control has an accessible label. Don't encode meaning in color alone (pair the swipe-right color with a clear icon/label).
-- Honor system dark mode and reduced motion.
+- Honor system reduced motion.
 
 ## Anti-patterns — do NOT design these
 - Ratings, stars, scores, tiers, streaks, or any public reputation surface (the product has none by design).

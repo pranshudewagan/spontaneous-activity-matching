@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 
@@ -22,14 +22,10 @@ export default function VerifyScreen() {
     if (code.length < 6) return;
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: code,
-      type: 'email',
-    });
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
     setLoading(false);
     if (error) setError(error.message);
-    // on success, root _layout.tsx detects the new session and redirects to (app)
+    // on success root _layout detects new session and redirects to (app)
   }
 
   async function resend() {
@@ -42,47 +38,63 @@ export default function VerifyScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.inner}>
-        <ThemedText type="title" style={styles.heading}>Enter code</ThemedText>
-        <ThemedText type="small" style={styles.sub}>
-          Sent to {email}
-        </ThemedText>
-
-        <TextInput
-          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-          placeholder="6-digit code"
-          placeholderTextColor={theme.textSecondary}
-          value={code}
-          onChangeText={setCode}
-          keyboardType="number-pad"
-          maxLength={6}
-          autoFocus
-          onSubmitEditing={verify}
-          returnKeyType="done"
-        />
-
-        {error && <ThemedText type="small" style={styles.error}>{error}</ThemedText>}
-
-        <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-          onPress={verify}
-          disabled={loading}
+    <ThemedView style={[styles.container, { backgroundColor: theme.bg }]}>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.inner}
         >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <ThemedText type="small" style={styles.buttonText}>Verify</ThemedText>
-          }
-        </Pressable>
+          <ThemedText type="display" style={styles.heading}>Enter code</ThemedText>
+          <ThemedText type="caption" themeColor="muted" style={styles.sub}>
+            Sent to {email}
+          </ThemedText>
 
-        <Pressable onPress={resend} disabled={resending} style={styles.resendRow}>
-          {resending
-            ? <ActivityIndicator size="small" />
-            : <ThemedText type="small" style={styles.resendText}>
-                {resent ? 'Code resent!' : 'Resend code'}
-              </ThemedText>
-          }
-        </Pressable>
+          <TextInput
+            style={[styles.input, {
+              backgroundColor: theme.surface,
+              borderColor: theme.line,
+              color: theme.ink,
+            }]}
+            placeholder="000000"
+            placeholderTextColor={theme.muted}
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            maxLength={6}
+            autoFocus
+            onSubmitEditing={verify}
+            returnKeyType="done"
+          />
+
+          {error && (
+            <ThemedText type="caption" style={[styles.error, { color: theme.danger }]}>
+              {error}
+            </ThemedText>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: theme.action, opacity: pressed ? 0.85 : 1 },
+            ]}
+            onPress={verify}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <ThemedText type="label" style={styles.buttonText}>Verify</ThemedText>
+            }
+          </Pressable>
+
+          <Pressable onPress={resend} disabled={resending} style={styles.resendRow}>
+            {resending
+              ? <ActivityIndicator size="small" color={theme.accent} />
+              : <ThemedText type="caption" style={{ color: theme.accent }}>
+                  {resent ? 'Code resent' : 'Resend code'}
+                </ThemedText>
+            }
+          </Pressable>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -90,33 +102,31 @@ export default function VerifyScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  safe:      { flex: 1 },
   inner: {
     flex: 1,
     paddingHorizontal: Spacing.four,
     justifyContent: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
   },
-  heading: { textAlign: 'center' },
-  sub: { textAlign: 'center', opacity: 0.6 },
+  heading: { textAlign: 'center', marginBottom: Spacing.one },
+  sub:     { textAlign: 'center', marginBottom: Spacing.three },
   input: {
     borderWidth: 1,
-    borderColor: '#E6E4EA',
     borderRadius: 12,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-    letterSpacing: 8,
+    height: 48,
+    fontSize: 20,
+    letterSpacing: 10,
     textAlign: 'center',
   },
-  error: { color: '#D14545', textAlign: 'center' },
+  error:     { textAlign: 'center' },
   button: {
-    backgroundColor: '#FB8B24',
     borderRadius: 12,
-    paddingVertical: Spacing.three,
+    height: 48,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.one,
   },
-  pressed: { opacity: 0.8 },
   buttonText: { color: '#fff' },
-  resendRow: { alignItems: 'center' },
-  resendText: { color: '#3CAEA3' },
+  resendRow:  { alignItems: 'center', paddingVertical: Spacing.two },
 });

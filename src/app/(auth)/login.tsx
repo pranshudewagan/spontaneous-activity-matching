@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -31,39 +31,55 @@ export default function LoginScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.inner}>
-        <ThemedText type="title" style={styles.heading}>Sign in</ThemedText>
-        <ThemedText type="small" style={styles.sub}>
-          We'll send a code to your email.
-        </ThemedText>
-
-        <TextInput
-          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-          placeholder="you@example.com"
-          placeholderTextColor={theme.textSecondary}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoFocus
-          onSubmitEditing={sendCode}
-          returnKeyType="send"
-        />
-
-        {error && <ThemedText type="small" style={styles.error}>{error}</ThemedText>}
-
-        <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-          onPress={sendCode}
-          disabled={loading}
+    <ThemedView style={[styles.container, { backgroundColor: theme.bg }]}>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.inner}
         >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <ThemedText type="small" style={styles.buttonText}>Send code</ThemedText>
-          }
-        </Pressable>
+          <ThemedText type="display" style={styles.heading}>Sign in</ThemedText>
+          <ThemedText type="caption" themeColor="muted" style={styles.sub}>
+            We'll send a one-time code to your email.
+          </ThemedText>
+
+          <TextInput
+            style={[styles.input, {
+              backgroundColor: theme.surface,
+              borderColor: theme.line,
+              color: theme.ink,
+            }]}
+            placeholder="you@example.com"
+            placeholderTextColor={theme.muted}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus
+            onSubmitEditing={sendCode}
+            returnKeyType="send"
+          />
+
+          {error && (
+            <ThemedText type="caption" style={[styles.error, { color: theme.danger }]}>
+              {error}
+            </ThemedText>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: theme.action, opacity: pressed ? 0.85 : 1 },
+            ]}
+            onPress={sendCode}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <ThemedText type="label" style={styles.buttonText}>Send code</ThemedText>
+            }
+          </Pressable>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -71,29 +87,29 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  safe:      { flex: 1 },
   inner: {
     flex: 1,
     paddingHorizontal: Spacing.four,
     justifyContent: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
   },
-  heading: { textAlign: 'center' },
-  sub: { textAlign: 'center', opacity: 0.6 },
+  heading: { textAlign: 'center', marginBottom: Spacing.one },
+  sub:     { textAlign: 'center', marginBottom: Spacing.three },
   input: {
     borderWidth: 1,
-    borderColor: '#E6E4EA',
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
+    height: 48,
     fontSize: 16,
   },
-  error: { color: '#D14545', textAlign: 'center' },
+  error:  { textAlign: 'center' },
   button: {
-    backgroundColor: '#FB8B24',
     borderRadius: 12,
-    paddingVertical: Spacing.three,
+    height: 48,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.one,
   },
-  pressed: { opacity: 0.8 },
   buttonText: { color: '#fff' },
 });

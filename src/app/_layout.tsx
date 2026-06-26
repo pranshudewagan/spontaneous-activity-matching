@@ -1,14 +1,12 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { supabase } from '@/lib/supabase';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const segments = useSegments();
   const router = useRouter();
@@ -29,7 +27,7 @@ export default function RootLayout() {
   }, [session, segments]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DefaultTheme}>
       <AnimatedSplashOverlay />
       {session !== undefined && <Stack screenOptions={{ headerShown: false }} />}
     </ThemeProvider>

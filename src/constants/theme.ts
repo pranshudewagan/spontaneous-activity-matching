@@ -1,26 +1,47 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import '@/global.css';
 
 import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    // DESIGN.md brand tokens — sunset ocean, warm-led
+    action:  '#F4845F',   // sunset coral — CTAs, swipe-right
+    accent:  '#2AAFA8',   // ocean teal — links, trust, safety
+    // DESIGN.md functional tokens
+    bg:      '#FFFAF8',   // warm-tinted background
+    ink:     '#1A100D',   // warm near-black — primary text
+    muted:   '#7A6560',   // warm muted — secondary text, captions
+    surface: '#FFFFFF',   // cards, sheets
+    line:    '#EDE5E1',   // warm border/divider
+    success: '#1E9E8E',   // ocean-tinted — accepted, confirmations
+    warning: '#E09020',   // warm amber — waitlist, soft cautions
+    danger:  '#D13E2A',   // warm red — destructive/safety only
+    // legacy aliases (keep for existing components)
+    text:               '#1A100D',
+    background:         '#FFFAF8',
+    backgroundElement:  '#F2EAE6',
+    backgroundSelected: '#E8DDD8',
+    textSecondary:      '#7A6560',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    // DESIGN.md brand tokens
+    action:  '#F4845F',
+    accent:  '#2AAFA8',
+    // DESIGN.md functional tokens
+    bg:      '#140F0D',
+    ink:     '#F5EDE8',
+    muted:   '#9E8880',
+    surface: '#221812',
+    line:    '#342520',
+    success: '#1E9E8E',
+    warning: '#E09020',
+    danger:  '#D13E2A',
+    // legacy aliases
+    text:               '#F5EDE8',
+    background:         '#140F0D',
+    backgroundElement:  '#2A1C18',
+    backgroundSelected: '#362420',
+    textSecondary:      '#9E8880',
   },
 } as const;
 
@@ -28,13 +49,9 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
@@ -51,14 +68,15 @@ export const Fonts = Platform.select({
   },
 });
 
+// 4pt spacing scale
 export const Spacing = {
   half: 2,
-  one: 4,
-  two: 8,
+  one:  4,
+  two:  8,
   three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  four:  24,
+  five:  32,
+  six:   64,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
