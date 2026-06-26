@@ -137,6 +137,16 @@ module.exports = config;
 
 ---
 
+---
+
+### 7. `react-native-reanimated` layout animation crash on web
+
+On web, reanimated 4.x throws `Cannot read properties of undefined (reading 'top')` inside `layoutReanimation/web/componentStyle.js` during animation cleanup. Phone is unaffected.
+
+This is a reanimated web compatibility issue, not an app bug. Since web is not a v1 target, ignore it for now.
+
+---
+
 ### Quick start checklist
 
 1. Check for dataless files: `ls -lO src/app/_layout.tsx` — should NOT show `dataless`
