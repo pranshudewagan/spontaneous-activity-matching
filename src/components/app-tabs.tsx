@@ -17,7 +17,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="my-plans">
         <Label>My plans</Label>
-        <Icon sf={{ default: 'calendar', selected: 'calendar.circle.fill' }} />
+        <Icon sf="calendar" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Label>Profile</Label>
