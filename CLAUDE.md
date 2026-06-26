@@ -105,7 +105,11 @@ These govern nearly every feature. Treat them as authoritative; if a request con
 - Distances are shown to and entered by users in **miles** (US). PostGIS works in meters — convert at the edge, store/compute in meters.
 - UI follows `DESIGN.md` — read it before building any screen or component, so the look stays coherent and reinforces the product decisions (no address, no ratings, distance-not-location).
 - One Supabase client instance, imported everywhere; don't construct ad-hoc clients.
-- Commit at every working slice; small diffs over big ones.
+- Commit at every working slice; small diffs over big ones. Commit message format:
+  - Phase steps: `<phase><step>: <what was built> — ✓ <verification result>`  e.g. `1a: run init migration — ✓ all tables, types, functions created`
+  - Bug fixes: `fix: <description>`
+  - Housekeeping: `chore: <description>`
+  - Only commit when the user explicitly asks.
 
 ## Constraints
 - **Location is never exposed to anyone, at any stage.** No user's location and no activity's coordinates/address are ever sent to a client — not in discovery, not after matching. Location exists only server-side, solely to compute distance for radius-based discovery. The only spatial thing a client may receive is a distance/eligibility result (e.g. "within your radius"), never coordinates or an address. Where to actually meet is coordinated by participants in the activity chat. This must be enforced at the database: the client is never granted read access to the location column; distance comes back only through a function that returns a number. Hiding it in the UI is not enough.
@@ -132,7 +136,6 @@ These govern nearly every feature. Treat them as authoritative; if a request con
 > Build ONE phase at a time, in order. Each phase — and each lettered step within it — ends in something runnable and verifiable. The detailed sub-steps and verify checks live in `ROADMAP.md`; read it when working a phase. Do not build ahead unless asked.
 0. **Foundation** — Expo + Supabase + email/phone OTP auth (+ configure auth rate limits) + empty profile screen.
 1. **Data model & security** — schema, RLS, location lockdown, generated types. ← current
-1. **Data model & security** — schema, RLS, location lockdown, generated types. 
 2. **Host an activity** — create form (+ fixed-list tag picker) → DB.
 3. **Discovery stack** — radius feed, swipe UI, manual filters, exclude past/own.
 4. **Joining & matching** — join requests, three accept modes, capacity + waitlist, reversal.

@@ -135,20 +135,6 @@ create policy "hosts update their own activities"
   using (host_id = auth.uid())
   with check (host_id = auth.uid());
 
--- Accepted participants may read the activity they're in (for the event-info
--- page). Discovery does NOT use this policy — it uses nearby_activities().
-create policy "participants read activities they joined"
-  on activities for select
-  to authenticated
-  using (
-    exists (
-      select 1 from join_requests jr
-      where jr.activity_id = activities.id
-        and jr.user_id = auth.uid()
-        and jr.status = 'accepted'
-    )
-  );
-
 -- ----------------------------------------------------------------------------
 -- join_requests
 -- One row per (activity, user). Status carries the whole lifecycle:
@@ -182,6 +168,21 @@ create policy "hosts read requests for their activities"
   using (
     exists (select 1 from activities a
             where a.id = join_requests.activity_id and a.host_id = auth.uid())
+  );
+
+-- Accepted participants may read the activity they're in (for the event-info
+-- page). Placed here (after join_requests exists) to satisfy the forward reference.
+-- Discovery does NOT use this policy — it uses nearby_activities().
+create policy "participants read activities they joined"
+  on activities for select
+  to authenticated
+  using (
+    exists (
+      select 1 from join_requests jr
+      where jr.activity_id = activities.id
+        and jr.user_id = auth.uid()
+        and jr.status = 'accepted'
+    )
   );
 
 -- A user creates their own request (the right-swipe). Acceptance/capacity is

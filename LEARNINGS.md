@@ -147,6 +147,87 @@ This is a reanimated web compatibility issue, not an app bug. Since web is not a
 
 ---
 
+---
+
+### 8. `expo-router/unstable-native-tabs` API — Label and Icon are standalone exports
+
+`NativeTabs.Trigger.Label` and `NativeTabs.Trigger.Icon` **do not exist**. They are separate top-level exports:
+
+```tsx
+// Wrong
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+<NativeTabs.Trigger name="index">
+  <NativeTabs.Trigger.Label>Discover</NativeTabs.Trigger.Label>  // ❌ doesn't exist
+</NativeTabs.Trigger>
+
+// Correct
+import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+<NativeTabs.Trigger name="index">
+  <Label>Discover</Label>   // ✓
+  <Icon sf={{ default: 'map', selected: 'map.fill' }} />  // ✓
+</NativeTabs.Trigger>
+```
+
+`calendar.fill` is NOT a valid SFSymbols7_0 name. For the calendar tab, use `sf="calendar"` (same for both states) — the color change via `iconColor` is sufficient selection signal.
+
+---
+
+### 9. NativeTabs going dark — two separate causes
+
+**Cause 1 — System dark mode:** If `userInterfaceStyle` in `app.json` is `"automatic"`, the tab bar adopts system appearance. Fix: set `"userInterfaceStyle": "light"` to lock the app to light mode.
+
+**Cause 2 — ScrollView scroll edge:** iOS's adaptive scroll-edge appearance makes the tab bar translucent/dark when a ScrollView is at its edge. Fix: add `disableTransparentOnScrollEdge` prop to `<NativeTabs>`.
+
+---
+
+### 10. Circular RLS between `activities` and `join_requests`
+
+RLS policies that cross-reference tables create infinite recursion if both tables reference each other:
+
+- `activities` policy "participants read activities they joined" → subquery on `join_requests`  
+- `join_requests` policy "hosts read requests for their activities" → subquery on `activities`  
+→ PostgreSQL error: `infinite recursion detected in policy for relation "activities"`
+
+**Fix:** Any RLS policy that needs to look up a row in another RLS-protected table must go through a `SECURITY DEFINER` function. The function runs as its owner (postgres), bypasses RLS for its internal queries, and breaks the cycle:
+
+```sql
+create or replace function is_activity_host(p_activity uuid, p_user uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists (select 1 from activities a where a.id = p_activity and a.host_id = p_user);
+$$;
+-- Replace the direct subquery in the join_requests policy with is_activity_host(activity_id, auth.uid())
+```
+
+---
+
+### 11. Local Supabase missing default DML grants
+
+`supabase init` + user migrations do not automatically grant `SELECT`, `INSERT`, `UPDATE`, `DELETE` to `authenticated` and `anon` roles the way the managed cloud does. Without these grants, RLS policies evaluate but the table-level privilege check fails first.
+
+**Fix:** Add explicit grants in a migration:
+
+```sql
+grant usage on schema public to authenticated, anon;
+grant select on tags to authenticated;
+grant select, insert, update on profiles to authenticated;
+grant insert, update on activities to authenticated;   -- SELECT is column-level already
+grant select, insert, update on join_requests to authenticated;
+grant select, insert on messages to authenticated;
+```
+
+Note: for `activities`, we use column-level `GRANT SELECT (col1, col2, ...)` to exclude the `location` column. Do NOT add table-level `GRANT SELECT` on activities — that would expose location.
+
+---
+
+### 12. `supabase gen types` includes `location: unknown`
+
+The type generator introspects the schema structure, not grant restrictions. It generates `location: unknown` for the `activities` table even though the column is blocked by column-level grants. This is acceptable:
+- The DB grant is the real security boundary
+- `unknown` type prevents accidental client-side use in TypeScript
+- Never hand-edit the generated file
+
+---
+
 ### Quick start checklist
 
 1. Check for dataless files: `ls -lO src/app/_layout.tsx` — should NOT show `dataless`
