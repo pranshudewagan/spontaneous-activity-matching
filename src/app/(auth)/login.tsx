@@ -1,13 +1,13 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { supabase } from '@/lib/supabase';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -52,6 +52,8 @@ export default function LoginScreen() {
             placeholderTextColor={theme.muted}
             value={email}
             onChangeText={setEmail}
+            autoComplete="email" // android
+            textContentType="emailAddress" // ios
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
