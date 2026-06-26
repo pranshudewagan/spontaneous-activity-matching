@@ -5,14 +5,14 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing } from '@/constants/theme';
 
-export default function DiscoverScreen() {
+export default function MyPlansScreen() {
   const theme = useTheme();
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.inner}>
-        <ThemedText type="title">Discover</ThemedText>
+        <ThemedText type="title">My plans</ThemedText>
         <ThemedText type="body" themeColor="muted" style={styles.sub}>
-          Activities near you will appear here.
+          Your upcoming activities will appear here.
         </ThemedText>
       </View>
     </SafeAreaView>

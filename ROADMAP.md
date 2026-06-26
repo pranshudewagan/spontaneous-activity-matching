@@ -12,10 +12,10 @@ b. Create the Supabase project; add the client in `src/lib/supabase.ts` with env
 c. Email OTP sign-up/login screen. → ✓ you receive a code by email and reach a logged-in state.
 d. Phone OTP (after connecting an SMS provider, e.g. Twilio). → ✓ you receive a code by SMS and log in.  ⚠️ deferred — all supported providers cost money per SMS; add when ready to spend
 e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled.
-f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.  ← current
+f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.
 
 ## Phase 1 — Data model & security
-a. Run `0001_init.sql` against a local Supabase. → ✓ all tables, types, and functions create with no errors.
+a. Run `0001_init.sql` against a local Supabase. → ✓ all tables, types, and functions create with no errors.  ← current
 b. Generate types: `npx supabase gen types typescript --local`. → ✓ `database.types.ts` exists and reflects the schema.
 c. RLS cross-user checks (sign in as two users). → ✓ user A cannot read user B's `join_requests`; a non-member cannot read an activity's `messages`; a non-host cannot update someone else's activity.
 d. Location lockdown. → ✓ `select location from activities` FAILS for an authenticated user; `nearby_activities()` returns `distance_m` and no coordinates.
