@@ -86,7 +86,7 @@ These govern nearly every feature. Treat them as authoritative; if a request con
 - Generate TS types from schema: `npx supabase gen types typescript --local > src/lib/database.types.ts`
 - Build for stores: `eas build -p ios` / `eas build -p android`
 - Submit to stores: `eas submit -p ios` / `eas submit -p android`
-- Test: `[command — set when test runner is chosen]`
+- Test: `npm test` (Jest + jest-expo preset). Tests live alongside source in `__tests__/` subdirectories.
 
 ## Layout
 > ⚠️ Fill once the repo exists. Document only the non-obvious parts.
