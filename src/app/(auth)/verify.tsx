@@ -32,9 +32,10 @@ export default function VerifyScreen() {
     setResending(true);
     setError(null);
     setResent(false);
-    await supabase.auth.signInWithOtp({ email });
+    const { error } = await supabase.auth.signInWithOtp({ email });
     setResending(false);
-    setResent(true);
+    if (error) setError(error.message);
+    else setResent(true);
   }
 
   return (

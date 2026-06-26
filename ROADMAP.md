@@ -11,8 +11,8 @@ a. Scaffold the Expo app (TypeScript) and run it on a real device or simulator. 
 b. Create the Supabase project; add the client in `src/lib/supabase.ts` with env keys. → ✓ a trivial query (e.g. `select now()`) succeeds from the app.
 c. Email OTP sign-up/login screen. → ✓ you receive a code by email and reach a logged-in state.
 d. Phone OTP (after connecting an SMS provider, e.g. Twilio). → ✓ you receive a code by SMS and log in.  ⚠️ deferred — all supported providers cost money per SMS; add when ready to spend
-e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled.  ← current
-f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.
+e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled.
+f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.  ← current
 
 ## Phase 1 — Data model & security
 a. Run `0001_init.sql` against a local Supabase. → ✓ all tables, types, and functions create with no errors.
