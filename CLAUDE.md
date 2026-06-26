@@ -135,8 +135,8 @@ These govern nearly every feature. Treat them as authoritative; if a request con
 ## Build phases
 > Build ONE phase at a time, in order. Each phase — and each lettered step within it — ends in something runnable and verifiable. The detailed sub-steps and verify checks live in `ROADMAP.md`; read it when working a phase. Do not build ahead unless asked.
 0. **Foundation** — Expo + Supabase + email/phone OTP auth (+ configure auth rate limits) + empty profile screen.
-1. **Data model & security** — schema, RLS, location lockdown, generated types. ← current
-2. **Host an activity** — create form (+ fixed-list tag picker) → DB.
+1. **Data model & security** — schema, RLS, location lockdown, generated types.
+2. **Host an activity** — create form (+ fixed-list tag picker) → DB. ← current
 3. **Discovery stack** — radius feed, swipe UI, manual filters, exclude past/own.
 4. **Joining & matching** — join requests, three accept modes, capacity + waitlist, reversal.
 5. **Matched experience** — event-info (no address), group chat (in-app, Realtime).
