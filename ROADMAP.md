@@ -7,8 +7,8 @@ Legend: each step is `letter. what to build → ✓ how to verify`.
 ---
 
 ## Phase 0 — Foundation
-a. Scaffold the Expo app (TypeScript) and run it on a real device or simulator. → ✓ app boots to a blank screen on your phone.  ← current
-b. Create the Supabase project; add the client in `src/lib/supabase.ts` with env keys. → ✓ a trivial query (e.g. `select now()`) succeeds from the app.
+a. Scaffold the Expo app (TypeScript) and run it on a real device or simulator. → ✓ app boots to a blank screen on your phone.
+b. Create the Supabase project; add the client in `src/lib/supabase.ts` with env keys. → ✓ a trivial query (e.g. `select now()`) succeeds from the app.  ← current
 c. Email OTP sign-up/login screen. → ✓ you receive a code by email and reach a logged-in state.
 d. Phone OTP (after connecting an SMS provider, e.g. Twilio). → ✓ you receive a code by SMS and log in.
 e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled.
