@@ -579,10 +579,12 @@ export type Database = {
       nearby_activities: {
         Args: { p_lat: number; p_lng: number; p_radius_m: number }
         Returns: {
+          accepted_count: number
           description: string
           distance_m: number
           host_id: string
           id: string
+          image_url: string
           max_participants: number
           mode: Database["public"]["Enums"]["accept_mode"]
           start_time: string
