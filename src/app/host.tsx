@@ -13,8 +13,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
-
 type AcceptMode = 'auto' | 'auto_criteria' | 'manual';
+
+const TAGS: { slug: string; label: string; color: string }[] = [
+  { slug: 'arts',       label: 'Arts & culture', color: '#B45C8A' },
+  { slug: 'fitness',    label: 'Fitness',         color: '#1E9E8E' },
+  { slug: 'food_drink', label: 'Food & drink',    color: '#F4845F' },
+  { slug: 'games',      label: 'Games',           color: '#4F46E5' },
+  { slug: 'learning',   label: 'Learning',        color: '#3B82F6' },
+  { slug: 'music',      label: 'Music',           color: '#7C3AED' },
+  { slug: 'nightlife',  label: 'Nightlife',       color: '#DB2777' },
+  { slug: 'outdoors',   label: 'Outdoors',        color: '#2AAFA8' },
+  { slug: 'social',     label: 'Social',          color: '#D97706' },
+  { slug: 'sports',     label: 'Sports',          color: '#C2520A' },
+];
 
 const MODES: { value: AcceptMode; label: string }[] = [
   { value: 'auto',          label: 'Everyone'  },
@@ -53,6 +65,15 @@ export default function HostScreen() {
   const [maxParticipants, setMaxParticipants] = useState(4);
   const [mode,            setMode]            = useState<AcceptMode>('auto');
   const [showPicker,      setShowPicker]      = useState(false);
+  const [selectedTags,    setSelectedTags]    = useState<string[]>([]);
+
+  const toggleTag = (slug: string) => {
+    setSelectedTags(prev =>
+      prev.includes(slug)
+        ? prev.filter(s => s !== slug)
+        : prev.length < 3 ? [...prev, slug] : prev
+    );
+  };
 
   const canSubmit = title.trim().length > 0 && startTime > new Date();
 
@@ -189,14 +210,36 @@ export default function HostScreen() {
           </View>
         </View>
 
-        {/* Tags — stub, filled in Phase 2b */}
+        {/* Tags */}
         <View style={styles.field}>
           <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
             Tags{' '}
             <ThemedText type="caption" style={{ color: theme.muted }}>(up to 3, optional)</ThemedText>
           </ThemedText>
-          <View style={[styles.row, { borderColor: theme.line, opacity: 0.45 }]}>
-            <ThemedText type="body" style={{ color: theme.muted }}>Pick tags…</ThemedText>
+          <View style={styles.chipGrid}>
+            {TAGS.map(tag => {
+              const selected = selectedTags.includes(tag.slug);
+              const atCap    = !selected && selectedTags.length >= 3;
+              return (
+                <Pressable
+                  key={tag.slug}
+                  onPress={() => toggleTag(tag.slug)}
+                  disabled={atCap}
+                  style={[
+                    styles.chip,
+                    selected
+                      ? { backgroundColor: tag.color + '22', borderColor: tag.color + '55' }
+                      : { backgroundColor: theme.surface, borderColor: theme.line },
+                    atCap && styles.chipDimmed,
+                  ]}>
+                  <ThemedText
+                    type="label"
+                    style={{ color: selected ? tag.color : atCap ? theme.muted : theme.ink, fontWeight: '600' }}>
+                    {tag.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -290,6 +333,21 @@ const styles = StyleSheet.create({
   stepBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   stepBtnText: { lineHeight: 28 },
   stepValue:   { minWidth: 40, textAlign: 'center' },
+
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: Spacing.two + 4,
+    paddingVertical: Spacing.one + 2,
+  },
+  chipDimmed: {
+    opacity: 0.4,
+  },
 
   segmented: {
     flexDirection: 'row',
