@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActivityCard, type ActivityCardData } from '@/components/activity-card';
 import { ThemedText } from '@/components/themed-text';
@@ -24,6 +24,7 @@ type Tab = 'hosting' | 'joined';
 export default function MyPlansScreen() {
   const router = useRouter();
   const theme  = Colors.light;
+  const { bottom } = useSafeAreaInsets();
 
   const [activeTab,   setActiveTab]   = useState<Tab>('hosting');
   const [activities,  setActivities]  = useState<ActivityCardData[]>([]);
@@ -135,7 +136,7 @@ export default function MyPlansScreen() {
             data={activities}
             keyExtractor={a => a.id}
             style={styles.fill}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
             renderItem={({ item }) => {
               const isPast = new Date(item.start_time) <= new Date();
               if (isPast) return <ActivityCard activity={item} muted />;
