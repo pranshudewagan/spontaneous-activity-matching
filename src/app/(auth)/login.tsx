@@ -9,32 +9,24 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
-function toE164(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (raw.trim().startsWith('+')) return '+' + digits;
-  if (digits.length === 10) return '+1' + digits;
-  if (digits.length === 11 && digits.startsWith('1')) return '+' + digits;
-  return '+' + digits;
-}
-
 export default function LoginScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function sendCode() {
-    const formatted = toE164(phone.trim());
-    if (formatted.length < 8) return;
+    const trimmed = email.trim();
+    if (!trimmed) return;
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({ phone: formatted });
+    const { error } = await supabase.auth.signInWithOtp({ email: trimmed });
     setLoading(false);
     if (error) {
       setError(error.message);
     } else {
-      router.push({ pathname: '/(auth)/verify', params: { phone: formatted } });
+      router.push({ pathname: '/(auth)/verify', params: { email: trimmed } });
     }
   }
 
@@ -47,7 +39,7 @@ export default function LoginScreen() {
         >
           <ThemedText type="display" style={styles.heading}>Sign in</ThemedText>
           <ThemedText type="caption" themeColor="muted" style={styles.sub}>
-            We'll text a 6-digit code to your number.
+            We'll send a one-time code to your email.
           </ThemedText>
 
           <TextInput
@@ -56,13 +48,15 @@ export default function LoginScreen() {
               borderColor: theme.line,
               color: theme.ink,
             }]}
-            placeholder="+1 (555) 000-0000"
+            placeholder="you@example.com"
             placeholderTextColor={theme.muted}
-            value={phone}
-            onChangeText={setPhone}
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            keyboardType="phone-pad"
+            value={email}
+            onChangeText={setEmail}
+            autoComplete="email"
+            textContentType="emailAddress"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
             autoFocus
             onSubmitEditing={sendCode}
             returnKeyType="send"

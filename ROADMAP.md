@@ -10,7 +10,7 @@ Legend: each step is `letter. what to build → ✓ how to verify`.
 a. Scaffold the Expo app (TypeScript) and run it on a real device or simulator. → ✓ app boots to a blank screen on your phone.
 b. Create the Supabase project; add the client in `src/lib/supabase.ts` with env keys. → ✓ a trivial query (e.g. `select now()`) succeeds from the app.
 c. Email OTP sign-up/login screen. → ✓ you receive a code by email and reach a logged-in state.
-d. Phone OTP via Twilio. → ✓ you receive a 6-digit code by SMS and log in. Code done; Twilio account + Supabase phone provider wiring deferred until ready to spend credits. Twilio trial restricts sends to pre-verified numbers; upgrade removes that.
+d. Phone OTP via Twilio. → ✓ you receive a 6-digit code by SMS and log in. Deferred — reverted to email OTP for now; phone code exists in git history. Unblocked by: upgrade Twilio past trial + wire Supabase phone provider.
 e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled. Set SMS OTPs/hour to 3 in Supabase → Authentication → Rate Limits once Twilio is wired.
 f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.
 

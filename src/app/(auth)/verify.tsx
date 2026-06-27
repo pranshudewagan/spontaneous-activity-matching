@@ -11,7 +11,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 export default function VerifyScreen() {
   const theme = useTheme();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { email } = useLocalSearchParams<{ email: string }>();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -22,7 +22,7 @@ export default function VerifyScreen() {
     if (code.length < 6) return;
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
     setLoading(false);
     if (error) setError(error.message);
     // on success root _layout detects new session and redirects to (app)
@@ -32,7 +32,7 @@ export default function VerifyScreen() {
     setResending(true);
     setError(null);
     setResent(false);
-    const { error } = await supabase.auth.signInWithOtp({ phone });
+    const { error } = await supabase.auth.signInWithOtp({ email });
     setResending(false);
     if (error) setError(error.message);
     else setResent(true);
@@ -47,7 +47,7 @@ export default function VerifyScreen() {
         >
           <ThemedText type="display" style={styles.heading}>Enter code</ThemedText>
           <ThemedText type="caption" themeColor="muted" style={styles.sub}>
-            Sent to {phone}
+            Sent to {email}
           </ThemedText>
 
           <TextInput
