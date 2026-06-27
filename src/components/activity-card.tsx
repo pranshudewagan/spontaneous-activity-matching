@@ -95,7 +95,7 @@ export function ActivityCard({ activity, onPress, muted = false }: Props) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.two,
