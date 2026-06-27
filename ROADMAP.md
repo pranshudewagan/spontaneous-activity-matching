@@ -10,8 +10,8 @@ Legend: each step is `letter. what to build → ✓ how to verify`.
 a. Scaffold the Expo app (TypeScript) and run it on a real device or simulator. → ✓ app boots to a blank screen on your phone.
 b. Create the Supabase project; add the client in `src/lib/supabase.ts` with env keys. → ✓ a trivial query (e.g. `select now()`) succeeds from the app.
 c. Email OTP sign-up/login screen. → ✓ you receive a code by email and reach a logged-in state.
-d. Phone OTP (after connecting an SMS provider, e.g. Twilio). → ✓ you receive a code by SMS and log in.  ⚠️ deferred — all supported providers cost money per SMS; add when ready to spend
-e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled.
+d. Phone OTP via Twilio. → ✓ you receive a 6-digit code by SMS and log in. Code done; Twilio account + Supabase phone provider wiring deferred until ready to spend credits. Twilio trial restricts sends to pre-verified numbers; upgrade removes that.
+e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled. Set SMS OTPs/hour to 3 in Supabase → Authentication → Rate Limits once Twilio is wired.
 f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.
 
 ## Phase 1 — Data model & security ✓
@@ -27,10 +27,10 @@ c. Location picker: defaults to your current location, but you can drag the pin 
 d. "My activities" list for the host. → ✓ your posted activity appears in your own list.
 e. Activity image upload (optional, 1 photo): pick from camera roll, preview before submit, stored in Supabase Storage; image renders on the activity card. → ✓ an activity posts with a photo and it renders on the card; form also submits without a photo.
 
-## Phase 3 — Discovery stack 
+## Phase 3 — Discovery stack
 a. Radius feed calling `nearby_activities(lat, lng, radius)`; radius in miles. Centers on your current location by default, but you can re-center it (drag, or type an address/place) — that point is where the radius stems from. → ✓ activities inside your radius appear, ones outside don't; re-centering changes the results.
-b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface. ← current
-c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack.
+b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface.
+c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack. ← current
 d. Optional manual filters (tag, distance). → ✓ a filter narrows the feed; clearing it shows everything eligible again; your listed interests do NOT auto-filter.
 e. Confirm the privacy boundary on the wire. → ✓ inspect the network response: only `distance_m`, never lat/lng or an address.
 

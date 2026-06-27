@@ -59,7 +59,7 @@ function formatTime(iso: string, flexible: boolean): string {
 
 function formatDistance(meters: number): string {
   const miles = meters / 1609.34;
-  return miles < 0.1 ? 'Nearby' : `~${miles.toFixed(1)} mi away`;
+  return miles < 1 ? 'Nearby' : `~${miles.toFixed(1)} mi away`;
 }
 
 export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }: Props) {

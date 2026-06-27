@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -41,7 +41,7 @@ function formatTime(iso: string, flexible: boolean): string {
 
 function formatDistance(meters: number): string {
   const miles = meters / 1609.34;
-  return miles < 0.1 ? 'Nearby' : `~${miles.toFixed(1)} mi away`;
+  return miles < 1 ? 'Nearby' : `~${miles.toFixed(1)} mi away`;
 }
 
 export function ActivityCard({ activity, onPress, muted = false }: Props) {
