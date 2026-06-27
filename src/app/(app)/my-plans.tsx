@@ -38,29 +38,36 @@ export default function MyPlansScreen() {
 
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
-  const confirmCancel = (item: ActivityCardData) => {
+  const confirmCancel = (item: ActivityCardData, isPast = false) => {
     swipeableRefs.current.get(item.id)?.close();
     const hasParticipants = item.accepted_count > 0;
-    Alert.alert(
-      'Cancel this plan?',
-      hasParticipants
+    const title   = isPast ? 'Delete this plan?' : 'Cancel this plan?';
+    const message = isPast
+      ? 'It will be permanently deleted.'
+      : hasParticipants
         ? 'People have already joined. It will be removed from discovery but they keep their chat.'
-        : 'It will be permanently deleted.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, cancel it',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = hasParticipants
-              ? await supabase.from('activities').update({ status: 'cancelled' }).eq('id', item.id)
-              : await supabase.from('activities').delete().eq('id', item.id);
+        : 'It will be permanently deleted.';
+    const confirmText = isPast ? 'Yes, delete it' : 'Yes, cancel it';
+    Alert.alert(title, message, [
+      { text: 'No', style: 'cancel' },
+      {
+        text: confirmText,
+        style: 'destructive',
+        onPress: async () => {
+          if (hasParticipants) {
+            const { error } = await supabase.from('activities').update({ status: 'cancelled' }).eq('id', item.id);
             if (error) { console.error(error); return; }
-            setActivities(prev => prev.filter(a => a.id !== item.id));
-          },
+          } else {
+            // Edge Function handles row delete + storage cleanup atomically
+            const { error } = await supabase.functions.invoke('delete-activity', {
+              body: { activity_id: item.id },
+            });
+            if (error) { console.error(error); return; }
+          }
+          setActivities(prev => prev.filter(a => a.id !== item.id));
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const loadHosted = async (isRefresh = false) => {
@@ -138,8 +145,9 @@ export default function MyPlansScreen() {
             style={styles.fill}
             contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
             renderItem={({ item }) => {
-              const isPast = new Date(item.start_time) <= new Date();
-              if (isPast) return <ActivityCard activity={item} muted />;
+              const isPast    = new Date(item.start_time) <= new Date();
+              const canDelete = isPast && item.accepted_count === 0;
+              if (isPast && !canDelete) return <ActivityCard activity={item} muted />;
               return (
                 <Swipeable
                   ref={r => { swipeableRefs.current.set(item.id, r); }}
@@ -148,11 +156,13 @@ export default function MyPlansScreen() {
                   renderRightActions={() => (
                     <Pressable
                       style={styles.cancelAction}
-                      onPress={() => confirmCancel(item)}>
+                      onPress={() => confirmCancel(item, canDelete)}>
                       <ThemedText style={styles.cancelActionText}>✕</ThemedText>
                     </Pressable>
                   )}>
-                  <ActivityCard activity={item} />
+                  <View style={{ backgroundColor: theme.bg }}>
+                    <ActivityCard activity={item} muted={isPast} />
+                  </View>
                 </Swipeable>
               );
             }}
