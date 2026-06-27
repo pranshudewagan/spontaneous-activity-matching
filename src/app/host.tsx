@@ -1,4 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -59,12 +61,25 @@ export default function HostScreen() {
   const [showPicker,      setShowPicker]      = useState(false);
   const [selectedTags,    setSelectedTags]    = useState<string[]>([]);
   const [location,        setLocation]        = useState<PickedLocation | null>(null);
+  const [imageUri,        setImageUri]        = useState<string | null>(null);
   const [postState,       setPostState]       = useState<'idle' | 'posting' | 'posted'>('idle');
 
   useFocusEffect(useCallback(() => {
     const picked = takePickedLocation();
     if (picked) setLocation(picked);
   }, []));
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setImageUri(result.assets[0].uri);
+  };
 
   const toggleTag = (slug: string) => {
     setSelectedTags(prev =>
@@ -86,6 +101,22 @@ export default function HostScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setPostState('idle'); return; }
+
+      let image_url: string | null = null;
+      if (imageUri) {
+        const path        = `${user.id}/${Date.now()}.jpg`;
+        const fileRes     = await fetch(imageUri);
+        const arrayBuffer = await fileRes.arrayBuffer();
+        const { error: uploadError } = await supabase.storage
+          .from('activity-images')
+          .upload(path, arrayBuffer, { contentType: 'image/jpeg' });
+        if (uploadError) { console.error(uploadError); setPostState('idle'); return; }
+        const { data: { publicUrl } } = supabase.storage
+          .from('activity-images')
+          .getPublicUrl(path);
+        image_url = publicUrl;
+      }
+
       const { error } = await supabase.from('activities').insert({
         host_id:          user.id,
         title:            title.trim(),
@@ -96,6 +127,7 @@ export default function HostScreen() {
         mode,
         tags:             selectedTags,
         location:         `POINT(${location.longitude} ${location.latitude})`,
+        image_url,
       });
       if (error) { console.error(error); setPostState('idle'); return; }
       setPostState('posted');
@@ -309,6 +341,31 @@ export default function HostScreen() {
           </View>
         </View>
 
+        {/* Photo */}
+        <View style={styles.field}>
+          <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
+            Photo{' '}
+            <ThemedText type="caption" style={{ color: theme.muted }}>(optional)</ThemedText>
+          </ThemedText>
+          {imageUri ? (
+            <View style={styles.imagePreviewWrap}>
+              <Image source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" />
+              <Pressable
+                style={[styles.imageRemove, { backgroundColor: theme.bg }]}
+                onPress={() => setImageUri(null)}
+                hitSlop={8}>
+                <ThemedText style={[styles.imageRemoveText, { color: theme.ink }]}>✕</ThemedText>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              style={[styles.imagePlaceholder, { borderColor: theme.line, backgroundColor: theme.surface }]}
+              onPress={pickImage}>
+              <ThemedText type="caption" style={{ color: theme.muted }}>+ Add photo</ThemedText>
+            </Pressable>
+          )}
+        </View>
+
         {/* Privacy note */}
         <View style={styles.privacyNote}>
           <ThemedText type="caption" style={{ color: theme.muted }}>
@@ -378,8 +435,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 4,
   },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-
   stepBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   stepBtnText: { lineHeight: 28 },
   stepValue:   { minWidth: 40, textAlign: 'center' },
@@ -410,6 +465,35 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two + 2,
     alignItems: 'center',
   },
+
+  imagePlaceholder: {
+    height: 120,
+    borderWidth: 1,
+    borderRadius: 12,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePreviewWrap: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  imagePreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+  },
+  imageRemove: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageRemoveText: { fontSize: 11, fontWeight: '700' },
 
   privacyNote: {
     marginBottom: Spacing.three,

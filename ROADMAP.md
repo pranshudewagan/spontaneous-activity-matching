@@ -25,8 +25,9 @@ a. Create-activity form: title, description, time + flexible toggle, max partici
 b. Tag picker from the fixed `tags` list (multi-select, optional). → ✓ you can pick zero or more tags; there is no way to type a custom one.  
 c. Location picker: defaults to your current location, but you can drag the pin or type an address / place name (geocoded to a point). The **exact spot is never shown on the posting** — distance only. (The real meeting place is shared in chat after matching, so the stored point only needs to be roughly right for the discovery radius.) → ✓ an activity row is created with a location and `host_id` = you; the posting shows no coordinates/address.
 d. "My activities" list for the host. → ✓ your posted activity appears in your own list.
+e. Activity image upload (optional, 1 photo): pick from camera roll, preview before submit, stored in Supabase Storage; image renders on the activity card. → ✓ an activity posts with a photo and it renders on the card; form also submits without a photo. ← current
 
-## Phase 3 — Discovery stack ← current
+## Phase 3 — Discovery stack 
 a. Radius feed calling `nearby_activities(lat, lng, radius)`; radius in miles. Centers on your current location by default, but you can re-center it (drag, or type an address/place) — that point is where the radius stems from. → ✓ activities inside your radius appear, ones outside don't; re-centering changes the results.
 b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface.
 c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack.

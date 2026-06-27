@@ -1,4 +1,6 @@
+import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -13,6 +15,7 @@ export type ActivityCardData = {
   accepted_count: number;
   distance_m: number;
   tags: string[];
+  image_url?: string | null;
 };
 
 type Props = {
@@ -41,20 +44,30 @@ function formatDistance(meters: number): string {
 }
 
 export function ActivityCard({ activity, onPress }: Props) {
-  const theme       = Colors.light;
-  const accentColor = tagColor(activity.tags[0] ?? '');
-  const going       = activity.accepted_count + 1;
-  const total       = activity.max_participants;
+  const theme        = Colors.light;
+  const accentColor  = tagColor(activity.tags[0] ?? '');
+  const going        = activity.accepted_count + 1;
+  const total        = activity.max_participants;
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <Pressable
       style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}
       onPress={onPress}>
 
-      {/* Square thumbnail placeholder */}
-      <View style={[styles.swatch, { backgroundColor: accentColor + '26' }]}>
-        <View style={[styles.swatchDot, { backgroundColor: accentColor }]} />
-      </View>
+      {/* Square thumbnail */}
+      {activity.image_url && !imgFailed ? (
+        <Image
+          source={{ uri: activity.image_url }}
+          style={styles.swatch}
+          contentFit="cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <View style={[styles.swatch, { backgroundColor: accentColor + '26' }]}>
+          <View style={[styles.swatchDot, { backgroundColor: accentColor }]} />
+        </View>
+      )}
 
       {/* Content */}
       <View style={styles.content}>
@@ -95,6 +108,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    overflow: 'hidden',
   },
   swatchDot: {
     width: 26,

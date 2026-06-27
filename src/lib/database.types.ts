@@ -40,6 +40,7 @@ export type Database = {
           description: string | null
           host_id: string
           id: string
+          image_url: string | null
           location: unknown
           max_participants: number
           mode: Database["public"]["Enums"]["accept_mode"]
@@ -54,6 +55,7 @@ export type Database = {
           description?: string | null
           host_id: string
           id?: string
+          image_url?: string | null
           location: unknown
           max_participants: number
           mode?: Database["public"]["Enums"]["accept_mode"]
@@ -68,6 +70,7 @@ export type Database = {
           description?: string | null
           host_id?: string
           id?: string
+          image_url?: string | null
           location?: unknown
           max_participants?: number
           mode?: Database["public"]["Enums"]["accept_mode"]
@@ -555,6 +558,24 @@ export type Database = {
         Returns: boolean
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      my_hosted_activities: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: {
+          accepted_count: number
+          created_at: string
+          description: string
+          distance_m: number
+          id: string
+          image_url: string
+          max_participants: number
+          mode: Database["public"]["Enums"]["accept_mode"]
+          start_time: string
+          status: Database["public"]["Enums"]["activity_status"]
+          tags: string[]
+          time_flexible: boolean
+          title: string
+        }[]
+      }
       nearby_activities: {
         Args: { p_lat: number; p_lng: number; p_radius_m: number }
         Returns: {
