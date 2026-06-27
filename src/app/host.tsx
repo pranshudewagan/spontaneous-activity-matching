@@ -1,7 +1,8 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -13,20 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
-type AcceptMode = 'auto' | 'auto_criteria' | 'manual';
+import { takePickedLocation, type PickedLocation } from '@/lib/location-handoff';
+import { supabase } from '@/lib/supabase';
+import { TAGS } from '@/lib/tags';
 
-const TAGS: { slug: string; label: string; color: string }[] = [
-  { slug: 'arts',       label: 'Arts & culture', color: '#B45C8A' },
-  { slug: 'fitness',    label: 'Fitness',         color: '#1E9E8E' },
-  { slug: 'food_drink', label: 'Food & drink',    color: '#F4845F' },
-  { slug: 'games',      label: 'Games',           color: '#4F46E5' },
-  { slug: 'learning',   label: 'Learning',        color: '#3B82F6' },
-  { slug: 'music',      label: 'Music',           color: '#7C3AED' },
-  { slug: 'nightlife',  label: 'Nightlife',       color: '#DB2777' },
-  { slug: 'outdoors',   label: 'Outdoors',        color: '#2AAFA8' },
-  { slug: 'social',     label: 'Social',          color: '#D97706' },
-  { slug: 'sports',     label: 'Sports',          color: '#C2520A' },
-];
+type AcceptMode = 'auto' | 'auto_criteria' | 'manual';
 
 const MODES: { value: AcceptMode; label: string }[] = [
   { value: 'auto',          label: 'Everyone'  },
@@ -66,6 +58,13 @@ export default function HostScreen() {
   const [mode,            setMode]            = useState<AcceptMode>('auto');
   const [showPicker,      setShowPicker]      = useState(false);
   const [selectedTags,    setSelectedTags]    = useState<string[]>([]);
+  const [location,        setLocation]        = useState<PickedLocation | null>(null);
+  const [postState,       setPostState]       = useState<'idle' | 'posting' | 'posted'>('idle');
+
+  useFocusEffect(useCallback(() => {
+    const picked = takePickedLocation();
+    if (picked) setLocation(picked);
+  }, []));
 
   const toggleTag = (slug: string) => {
     setSelectedTags(prev =>
@@ -75,12 +74,35 @@ export default function HostScreen() {
     );
   };
 
-  const canSubmit = title.trim().length > 0 && startTime > new Date();
+  const canSubmit =
+    postState === 'idle' &&
+    title.trim().length > 0 &&
+    startTime > new Date() &&
+    location !== null;
 
-  const handleSubmit = () => {
-    if (!canSubmit) return;
-    // TODO Phase 2c: insert activity row to DB
-    router.back();
+  const handleSubmit = async () => {
+    if (!canSubmit || !location) return;
+    setPostState('posting');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setPostState('idle'); return; }
+      const { error } = await supabase.from('activities').insert({
+        host_id:          user.id,
+        title:            title.trim(),
+        description:      description.trim() || null,
+        start_time:       startTime.toISOString(),
+        time_flexible:    timeFlexible,
+        max_participants: maxParticipants,
+        mode,
+        tags:             selectedTags,
+        location:         `POINT(${location.longitude} ${location.latitude})`,
+      });
+      if (error) { console.error(error); setPostState('idle'); return; }
+      setPostState('posted');
+    } catch (e) {
+      console.error(e);
+      setPostState('idle');
+    }
   };
 
   return (
@@ -150,6 +172,7 @@ export default function HostScreen() {
               mode="datetime"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
               minimumDate={new Date()}
+              accentColor={theme.action}
               onChange={(_, date) => {
                 if (date) setStartTime(date);
                 if (Platform.OS === 'android') setShowPicker(false);
@@ -164,26 +187,44 @@ export default function HostScreen() {
           <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
             Vibe
           </ThemedText>
-          <Pressable
-            style={[styles.row, { borderColor: theme.line }]}
-            onPress={() => setTimeFlexible(v => !v)}>
-            <View style={styles.rowLeft}>
-              <ThemedText type="body">🗓</ThemedText>
-              <ThemedText type="body">{timeFlexible ? 'Flexible' : 'Exact time'}</ThemedText>
-            </View>
-            <ThemedText type="body" style={{ color: theme.muted }}>›</ThemedText>
-          </Pressable>
+          <View style={[styles.segmented, { backgroundColor: theme.backgroundElement, borderColor: theme.line }]}>
+            {(['Exact time', 'Flexible'] as const).map((label, i) => {
+              const active = i === 0 ? !timeFlexible : timeFlexible;
+              return (
+                <Pressable
+                  key={label}
+                  style={[
+                    styles.segment,
+                    i === 0 && { borderRightWidth: 1, borderRightColor: theme.line },
+                    active && { backgroundColor: theme.surface },
+                  ]}
+                  onPress={() => setTimeFlexible(i === 1)}>
+                  <ThemedText type="label" style={{ color: active ? theme.ink : theme.muted }}>
+                    {label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
-        {/* Where — location stub, filled in Phase 2c */}
+        {/* Where */}
         <View style={styles.field}>
           <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
             Where?
           </ThemedText>
-          <View style={[styles.row, { borderColor: theme.line, opacity: 0.45 }]}>
-            <ThemedText type="body" style={{ color: theme.muted }}>Around you (~2 mi)</ThemedText>
-            <ThemedText type="body" style={{ color: theme.muted }}>✦</ThemedText>
-          </View>
+          <Pressable
+            style={[styles.row, { borderColor: location ? theme.action : theme.line }]}
+            onPress={() => router.push(
+              location
+                ? { pathname: '/location-picker', params: { lat: location.latitude, lng: location.longitude } }
+                : '/location-picker'
+            )}>
+            <ThemedText type="body" style={{ color: location ? theme.ink : theme.muted }}>
+              {location ? location.label : 'Set a rough area…'}
+            </ThemedText>
+            <ThemedText type="body" style={{ color: theme.muted }}>›</ThemedText>
+          </Pressable>
         </View>
 
         {/* How many people */}
@@ -277,10 +318,19 @@ export default function HostScreen() {
 
         {/* Post it CTA */}
         <Pressable
-          style={[styles.cta, { backgroundColor: canSubmit ? theme.action : theme.line }]}
+          style={[styles.cta, {
+            backgroundColor:
+              postState === 'posted' ? theme.accent :
+              canSubmit            ? theme.action : theme.line,
+          }]}
           onPress={handleSubmit}
           disabled={!canSubmit}>
-          <ThemedText type="label" style={styles.ctaText}>Post it ✦</ThemedText>
+          {postState === 'posting'
+            ? <ActivityIndicator color="#FFFFFF" />
+            : <ThemedText type="label" style={styles.ctaText}>
+                {postState === 'posted' ? 'Posted! ✓' : 'Post it ✦'}
+              </ThemedText>
+          }
         </Pressable>
 
         <View style={{ height: Spacing.four }} />
