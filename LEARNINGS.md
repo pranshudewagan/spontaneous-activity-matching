@@ -228,6 +228,120 @@ The type generator introspects the schema structure, not grant restrictions. It 
 
 ---
 
+### 13. Supabase Storage `remove()` silently returns `removed: []` on RLS failure
+
+`supabase.storage.from(bucket).remove([path])` returns `{ data: [], error: null }` when the delete is blocked by RLS — no error, just an empty array. This makes it impossible to distinguish a policy failure from a missing file at the call site. This occurs even when `owner` and `owner_id` in `storage.objects` are both correctly set to `auth.uid()` and the policy logic looks right. The JWT auth context is not forwarded to the Storage API the same way it is for database calls.
+
+**Fix:** Use an Edge Function with the service role key — `admin.storage.from(bucket).remove([path])` where `admin` is a `createClient(url, SUPABASE_SERVICE_ROLE_KEY)` instance. The service role key bypasses storage RLS entirely.
+
+```typescript
+// In Edge Function (server-side)
+const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+const { data } = await admin.storage.from('activity-images').remove([path])
+// data will contain the deleted file — no silent empty array
+```
+
+---
+
+### 14. `service_role` bypasses RLS but still needs PostgreSQL table-level grants
+
+The service role key has `BYPASSRLS` privilege, but that is separate from table-level grants. If migrations only grant `SELECT`/`INSERT`/`DELETE` to `authenticated` and `anon`, an Edge Function using the service role key gets:
+
+> `permission denied for table activities`
+
+**Fix:** Add explicit grants for `service_role` in a migration. Grant only the columns and operations the server-side code actually needs — keep sensitive columns like `location` excluded:
+
+```sql
+grant select (id, host_id, image_url) on activities to service_role;
+grant delete on activities to service_role;
+```
+
+---
+
+### 15. Edge Function caller verification — use anon key client, not service role `getUser(jwt)`
+
+The correct pattern to identify the calling user inside a Supabase Edge Function is to create a client with the **anon key** and the request's Authorization header, then call `getUser()` with no arguments:
+
+```typescript
+// Correct
+const userClient = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, {
+  global: { headers: { Authorization: req.headers.get('Authorization')! } },
+})
+const { data: { user } } = await userClient.auth.getUser()
+
+// Wrong — admin.auth.getUser(jwt) may not forward auth context correctly
+const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+const { data: { user } } = await admin.auth.getUser(jwt)
+```
+
+Then use a separate `createClient(url, SERVICE_ROLE_KEY)` for admin writes. The two clients serve different roles: one verifies identity, the other performs privileged operations.
+
+---
+
+### 16. iOS `ImagePicker` ignores the `aspect` ratio — always square
+
+`ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [3, 4] })` shows a **square** crop box on iOS regardless of the `aspect` prop. Android respects it. This is an iOS system limitation, not a bug in expo-image-picker.
+
+**Fix:** Disable `allowsEditing` on iOS to skip the native crop UI, then center-crop programmatically with `expo-image-manipulator`:
+
+```typescript
+const isIOS = Platform.OS === 'ios'
+const result = await ImagePicker.launchImageLibraryAsync({
+  allowsEditing: !isIOS,
+  aspect: [3, 4],   // only respected on Android
+  quality: 1,
+})
+// Then compute crop dimensions and run through ImageManipulator
+```
+
+---
+
+### 17. `LayoutAnimation` has no effect when Reanimated is active
+
+`LayoutAnimation.configureNext(...)` does not animate layout changes when `react-native-reanimated` is installed — Reanimated takes over the animation loop and `LayoutAnimation` calls are silently no-ops.
+
+**Fix:** Use `LinearTransition` from Reanimated v4 directly on the `Animated.View`:
+
+```tsx
+import Animated, { LinearTransition } from 'react-native-reanimated'
+
+<Animated.View layout={LinearTransition.duration(200)}>
+  {/* content that changes size */}
+</Animated.View>
+```
+
+Also add `overflow: 'hidden'` on the animated view if its content can overflow the shrinking bounds during animation.
+
+---
+
+### 18. `expo-image-manipulator` new builder API (old `manipulateAsync` deprecated)
+
+```typescript
+// Deprecated (still works but shows warning)
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
+await manipulateAsync(uri, [{ crop: {...} }], { compress: 0.8, format: SaveFormat.JPEG })
+
+// Current API
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
+const imageRef = await ImageManipulator
+  .manipulate(uri)
+  .crop({ originX, originY, width, height })
+  .renderAsync()
+const result = await imageRef.saveAsync({ compress: 0.8, format: SaveFormat.JPEG })
+```
+
+---
+
+### 19. `ALTER DATABASE SET` is blocked in the Supabase SQL editor
+
+The Supabase dashboard SQL editor does not run as superuser:
+
+> `permission denied to set parameter "app.supabase_url"`
+
+This blocks the pattern of storing secrets as `current_setting('app.key')` DB parameters from within the editor. **Workaround:** Use Supabase Vault for secrets, or avoid `current_setting()` in triggers entirely and use an Edge Function instead (where `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_URL` are auto-injected as `Deno.env` variables).
+
+---
+
 ### Quick start checklist
 
 1. Check for dataless files: `ls -lO src/app/_layout.tsx` — should NOT show `dataless`
