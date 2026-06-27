@@ -30,7 +30,7 @@ e. Activity image upload (optional, 1 photo): pick from camera roll, preview bef
 ## Phase 3 — Discovery stack
 a. Radius feed calling `nearby_activities(lat, lng, radius)`; radius in miles. Centers on your current location by default, but you can re-center it (drag, or type an address/place) — that point is where the radius stems from. → ✓ activities inside your radius appear, ones outside don't; re-centering changes the results.
 b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface.
-c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack. ← current
+c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack. ⚠️ skipping until multi-user testing is possible (needs a second account — unblocked by verifying a domain in Resend or upgrading Twilio) ← current
 d. Optional manual filters (tag, distance). → ✓ a filter narrows the feed; clearing it shows everything eligible again; your listed interests do NOT auto-filter.
 e. Confirm the privacy boundary on the wire. → ✓ inspect the network response: only `distance_m`, never lat/lng or an address.
 
