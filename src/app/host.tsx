@@ -1,5 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -72,13 +73,39 @@ export default function HostScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return;
+
+    // Android: native 3:4 crop box via aspect prop.
+    // iOS: system picker ignores aspect and forces a square crop box — skip editing
+    // and auto-center-crop to 3:4 after selection instead.
+    const isIOS = Platform.OS === 'ios';
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
+      allowsEditing: !isIOS,
       aspect: [3, 4],
-      quality: 0.8,
+      quality: 1,
     });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const { width, height } = asset;
+
+    const targetRatio = 3 / 4;
+    const actualRatio = width / height;
+    let cropW = width, cropH = height, originX = 0, originY = 0;
+    if (actualRatio > targetRatio) {
+      cropW = Math.floor(height * targetRatio);
+      originX = Math.floor((width - cropW) / 2);
+    } else if (actualRatio < targetRatio) {
+      cropH = Math.floor(width / targetRatio);
+      originY = Math.floor((height - cropH) / 2);
+    }
+
+    const imageRef = await ImageManipulator
+      .manipulate(asset.uri)
+      .crop({ originX, originY, width: cropW, height: cropH })
+      .renderAsync();
+    const cropped = await imageRef.saveAsync({ compress: 0.8, format: SaveFormat.JPEG });
+    setImageUri(cropped.uri);
   };
 
   const toggleTag = (slug: string) => {
@@ -180,11 +207,15 @@ export default function HostScreen() {
             placeholder="Meet at the east entrance, bring water…"
             placeholderTextColor={theme.muted}
             value={description}
-            onChangeText={setDescription}
+            onChangeText={t => setDescription(t.replace(/\n/g, ' '))}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            maxLength={300}
           />
+          <ThemedText type="caption" style={[styles.charCount, { color: theme.muted }]}>
+            {description.length}/300
+          </ThemedText>
         </View>
 
         {/* When */}
@@ -424,6 +455,10 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 80,
     paddingTop: Spacing.two + 2,
+  },
+  charCount: {
+    textAlign: 'right',
+    marginTop: 4,
   },
 
   row: {

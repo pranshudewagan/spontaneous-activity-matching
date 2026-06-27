@@ -1,24 +1,25 @@
+import { useState } from 'react';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
   interpolate,
+  LinearTransition,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { tagColor } from '@/lib/tags';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-export const CARD_W       = SCREEN_W - Spacing.three * 2;
-export const IMAGE_H      = 260;
-export const INFO_H       = 144;
-export const CARD_H       = IMAGE_H + INFO_H;
+export const CARD_W  = SCREEN_W - Spacing.three * 2;
+export const IMAGE_H = Math.round(CARD_W * 4 / 3);
+export const CARD_H  = IMAGE_H;
 
 const SWIPE_THRESHOLD = SCREEN_W * 0.3;
 
@@ -62,13 +63,17 @@ function formatDistance(meters: number): string {
 }
 
 export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }: Props) {
-  const theme      = Colors.light;
+  const theme       = Colors.light;
   const accentColor = tagColor(activity.tags[0] ?? '');
+
+  const [isTruncated,  setIsTruncated]  = useState(false);
+  const [expanded,     setExpanded]     = useState(false);
+  const [tagsPanelH,   setTagsPanelH]   = useState(0);
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
-  const scale  = 1 - index * 0.04;
+  const scale   = 1 - index * 0.04;
   const offsetY = index * 10;
 
   const gesture = Gesture.Pan()
@@ -115,9 +120,9 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.card, { backgroundColor: theme.surface }, cardStyle]}>
+      <Animated.View style={[styles.card, cardStyle]}>
 
-        {/* Image / placeholder */}
+        {/* Image / placeholder fills full card */}
         {activity.image_url ? (
           <Image
             source={{ uri: activity.image_url }}
@@ -125,10 +130,13 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
             contentFit="cover"
           />
         ) : (
-          <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: accentColor + '18' }]}>
-            <View style={[styles.placeholderDot, { backgroundColor: accentColor }]} />
-          </View>
+          <View style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : '#E8E0D8' }]} />
         )}
+
+        {/* Distance badge — top left over image */}
+        <View style={styles.distanceBadge}>
+          <ThemedText style={styles.distanceText}>{formatDistance(activity.distance_m)}</ThemedText>
+        </View>
 
         {/* Swipe overlays */}
         <Animated.View style={[styles.overlay, styles.overlayLeft, passStyle]}>
@@ -138,34 +146,59 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
           <ThemedText style={styles.overlayTextYes}>YES</ThemedText>
         </Animated.View>
 
-        {/* Info */}
-        <View style={[styles.info, { borderTopColor: theme.line }]}>
-          <ThemedText type="title" style={[styles.title, { color: theme.ink }]} numberOfLines={1}>
-            {activity.title}
-          </ThemedText>
-          <ThemedText type="label" style={[styles.time, { color: theme.action }]} numberOfLines={1}>
-            {formatTime(activity.start_time, activity.time_flexible)}
-          </ThemedText>
-          <View style={styles.metaRow}>
-            <ThemedText type="caption" style={{ color: theme.muted }}>
-              {formatDistance(activity.distance_m)}
-            </ThemedText>
-            <ThemedText type="caption" style={{ color: theme.accent }}>
-              {spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} left` : 'Full'}
-            </ThemedText>
-          </View>
-          {activity.tags.length > 0 && (
+        {/* Fixed bottom — show more/less + divider + tags + spots, never animated */}
+        <View
+          style={styles.fixedPanel}
+          onLayout={e => setTagsPanelH(e.nativeEvent.layout.height)}
+        >
+          {isTruncated && (
+            <Pressable onPress={() => setExpanded(p => !p)} style={styles.showMoreRow}>
+              <ThemedText style={styles.showMore}>
+                {expanded ? 'Show less' : 'Show more'}
+              </ThemedText>
+            </Pressable>
+          )}
+          <View style={styles.tagsAndSpots}>
             <View style={styles.tags}>
               {activity.tags.slice(0, 3).map(slug => (
-                <View key={slug} style={[styles.chip, { backgroundColor: tagColor(slug) + '20', borderColor: tagColor(slug) + '50' }]}>
-                  <ThemedText type="caption" style={{ color: tagColor(slug), fontWeight: '600' }}>
+                <View key={slug} style={[styles.chip, { backgroundColor: tagColor(slug) + '30', borderColor: tagColor(slug) + '60' }]}>
+                  <ThemedText type="caption" style={{ color: '#fff', fontWeight: '700' }}>
                     {slug.replace('_', ' ')}
                   </ThemedText>
                 </View>
               ))}
             </View>
-          )}
+            <ThemedText type="caption" style={{ color: '#fff', fontWeight: '700', flexShrink: 0 }}>
+              {spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} left` : 'Full'}
+            </ThemedText>
+          </View>
         </View>
+
+        {/* Title + time + description — expands upward, divider line at bottom */}
+        <Animated.View
+          style={[styles.infoPanel, { bottom: tagsPanelH }]}
+          layout={LinearTransition.duration(200)}
+        >
+          <ThemedText type="title" style={styles.title} numberOfLines={1}>
+            {activity.title}
+          </ThemedText>
+          <ThemedText type="label" style={[styles.time, { color: theme.action }]} numberOfLines={1}>
+            {formatTime(activity.start_time, activity.time_flexible)}
+          </ThemedText>
+          {!!activity.description && (
+            <ThemedText
+              type="caption"
+              style={styles.description}
+              numberOfLines={isTruncated && !expanded ? 3 : undefined}
+              onTextLayout={e => {
+                if (!isTruncated && e.nativeEvent.lines.length > 3) setIsTruncated(true);
+              }}
+            >
+              {activity.description}
+            </ThemedText>
+          )}
+        </Animated.View>
+
       </Animated.View>
     </GestureDetector>
   );
@@ -174,6 +207,7 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
 const styles = StyleSheet.create({
   card: {
     width: CARD_W,
+    height: CARD_H,
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#1A100D',
@@ -186,16 +220,22 @@ const styles = StyleSheet.create({
 
   image: {
     width: '100%',
-    height: IMAGE_H,
+    height: '100%',
   },
-  imagePlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
+
+  distanceBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  placeholderDot: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  distanceText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   overlay: {
@@ -219,20 +259,49 @@ const styles = StyleSheet.create({
   overlayTextPass: { fontSize: 22, fontWeight: '800', color: '#D13E2A' },
   overlayTextYes:  { fontSize: 22, fontWeight: '800', color: '#F4845F' },
 
-  info: {
-    padding: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 4,
+  // Fixed bottom — show more/less + tags + spots, never participates in layout animation
+  fixedPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.38)',
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.three,
+    zIndex: 2,
   },
-  title:   { fontSize: 20, fontWeight: '700', lineHeight: 26 },
-  time:    { fontWeight: '600' },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-
-  tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 },
+  showMoreRow: {
+    marginBottom: Spacing.two,
+  },
+  tagsAndSpots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
   chip: {
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
+
+  // Expandable panel — title + time + description, sits above fixed panel
+  infoPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.38)',
+    padding: Spacing.three,
+    paddingBottom: Spacing.two,
+    gap: 4,
+    zIndex: 1,
+    overflow: 'hidden',
+  },
+  title:       { fontSize: 20, fontWeight: '700', lineHeight: 26, color: '#fff' },
+  time:        { fontWeight: '700' },
+  description: { color: 'rgba(255,255,255,0.85)', fontWeight: '700' },
+  showMore:    { color: 'rgba(255,255,255,0.6)', fontWeight: '700', fontSize: 12 },
 });
