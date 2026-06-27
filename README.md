@@ -1,56 +1,76 @@
-# Welcome to your Expo app 👋
+# Spontaneous Activity Matching
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A location-based mobile app where people post real-life activities they already plan to do — laser tag, hiking, a museum, a food spot — and find others to join them through swipe-based matching.
 
-## Get started
+The core idea is coordination around a specific plan someone already has, not scheduled events or communities. A stranger should be able to either post "I'm going to X at Y" and get the right people to join, or open the app and find a real activity nearby to join today.
 
-1. Install dependencies
+## Stack
 
-   ```bash
-   npm install
-   ```
+- **Frontend:** React Native + Expo (SDK 54), Expo Router, Reanimated 4
+- **Backend:** Supabase — Postgres + PostGIS, Auth (OTP), Realtime, Storage, Edge Functions
+- **Builds:** EAS (Expo Application Services)
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Running locally
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Scan the QR code in Expo Go. Do not open `localhost:8081` in a browser — it triggers an SSR crash unrelated to the app.
 
-### Other setup steps
+### Supabase (local)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npx supabase start       # spin up local stack
+npx supabase db reset    # apply all migrations from scratch
+npx supabase stop
+```
 
-## Learn more
+### After schema changes
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npx supabase migration new <name>          # create a new migration file
+npx supabase db push                       # push to remote
+npx supabase gen types typescript --local > src/lib/database.types.ts
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Edge Functions
 
-## Join the community
+```bash
+npx supabase functions deploy <name>
+```
 
-Join our community of developers creating universal apps.
+## Project structure
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+src/
+  app/
+    (app)/          # tab screens (discover, my-plans)
+    host.tsx        # post an activity
+    location-picker.tsx
+  components/       # shared UI (swipe-card, activity-card, etc.)
+  constants/        # theme tokens
+  lib/              # supabase client, helpers
+supabase/
+  migrations/       # Postgres schema — source of truth
+  functions/        # Edge Functions
+```
+
+## Key design decisions
+
+- **Location is never exposed to any client.** Coordinates are stored server-side only to compute distance. The only spatial data a client ever receives is a distance number. This is enforced at the DB layer with column-level grants — hiding it in UI is not enough.
+- **All geo/ranking logic is SQL + PostGIS**, never recomputed client-side.
+- **Capacity and waitlist enforcement run inside Postgres functions**, not in client code.
+- **RLS is the security boundary.** Every table has Row Level Security enabled with explicit policies. The service role key bypasses RLS and never reaches the client.
+
+## Environment
+
+Create a `.env` file at the project root (see `.env.example` if present):
+
+```
+EXPO_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+```
+
+The anon key is safe to bundle in the app — it's guarded by RLS. The service role key must stay server-side (Edge Function secrets only).
