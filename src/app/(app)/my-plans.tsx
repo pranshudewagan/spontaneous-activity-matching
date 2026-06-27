@@ -1,7 +1,8 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   FlatList,
   Pressable,
@@ -10,6 +11,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActivityCard, type ActivityCardData } from '@/components/activity-card';
@@ -32,6 +34,33 @@ export default function MyPlansScreen() {
     if (activeTab === 'hosting') loadHosted();
     else setLoading(false);
   }, [activeTab]);
+
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+
+  const confirmCancel = (item: ActivityCardData) => {
+    swipeableRefs.current.get(item.id)?.close();
+    const hasParticipants = item.accepted_count > 0;
+    Alert.alert(
+      'Cancel this plan?',
+      hasParticipants
+        ? 'People have already joined. It will be removed from discovery but they keep their chat.'
+        : 'It will be permanently deleted.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, cancel it',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = hasParticipants
+              ? await supabase.from('activities').update({ status: 'cancelled' }).eq('id', item.id)
+              : await supabase.from('activities').delete().eq('id', item.id);
+            if (error) { console.error(error); return; }
+            setActivities(prev => prev.filter(a => a.id !== item.id));
+          },
+        },
+      ],
+    );
+  };
 
   const loadHosted = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -107,7 +136,25 @@ export default function MyPlansScreen() {
             keyExtractor={a => a.id}
             style={styles.fill}
             contentContainerStyle={styles.list}
-            renderItem={({ item }) => <ActivityCard activity={item} />}
+            renderItem={({ item }) => {
+              const isPast = new Date(item.start_time) <= new Date();
+              if (isPast) return <ActivityCard activity={item} muted />;
+              return (
+                <Swipeable
+                  ref={r => { swipeableRefs.current.set(item.id, r); }}
+                  friction={2}
+                  overshootRight={false}
+                  renderRightActions={() => (
+                    <Pressable
+                      style={styles.cancelAction}
+                      onPress={() => confirmCancel(item)}>
+                      <ThemedText style={styles.cancelActionText}>✕</ThemedText>
+                    </Pressable>
+                  )}>
+                  <ActivityCard activity={item} />
+                </Swipeable>
+              );
+            }}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.action} />
@@ -163,5 +210,16 @@ const styles = StyleSheet.create({
 
   fill:   { flex: 1 },
   list:   { padding: Spacing.three, flexGrow: 1 },
+
+  cancelAction: {
+    backgroundColor: '#E53E3E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 72,
+    borderRadius: 16,
+    marginBottom: Spacing.two,
+    marginLeft: Spacing.two,
+  },
+  cancelActionText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
 });

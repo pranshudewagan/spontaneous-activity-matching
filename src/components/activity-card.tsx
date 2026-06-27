@@ -21,6 +21,7 @@ export type ActivityCardData = {
 type Props = {
   activity: ActivityCardData;
   onPress?: () => void;
+  muted?: boolean;
 };
 
 function formatTime(iso: string, flexible: boolean): string {
@@ -43,16 +44,16 @@ function formatDistance(meters: number): string {
   return miles < 0.1 ? 'Nearby' : `~${miles.toFixed(1)} mi away`;
 }
 
-export function ActivityCard({ activity, onPress }: Props) {
+export function ActivityCard({ activity, onPress, muted = false }: Props) {
   const theme        = Colors.light;
-  const accentColor  = tagColor(activity.tags[0] ?? '');
+  const accentColor  = muted ? theme.muted : tagColor(activity.tags[0] ?? '');
   const going        = activity.accepted_count + 1;
   const total        = activity.max_participants;
   const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}
+      style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line, opacity: muted ? 0.5 : 1 }]}
       onPress={onPress}>
 
       {/* Square thumbnail */}

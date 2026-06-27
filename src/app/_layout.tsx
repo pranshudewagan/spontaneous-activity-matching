@@ -2,6 +2,7 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Session } from '@supabase/supabase-js';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -28,16 +29,18 @@ export default function RootLayout() {
   }, [session, segments]);
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <StatusBar style="dark" />
-      <AnimatedSplashOverlay />
-      {session !== undefined && (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(app)" />
-          <Stack.Screen name="host" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="location-picker" options={{ presentation: 'fullScreenModal' }} />
-        </Stack>
-      )}
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={DefaultTheme}>
+        <StatusBar style="dark" />
+        <AnimatedSplashOverlay />
+        {session !== undefined && (
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="host" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="location-picker" options={{ presentation: 'fullScreenModal' }} />
+          </Stack>
+        )}
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
