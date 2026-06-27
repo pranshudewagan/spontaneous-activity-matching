@@ -25,9 +25,9 @@ a. Create-activity form: title, description, time + flexible toggle, max partici
 b. Tag picker from the fixed `tags` list (multi-select, optional). → ✓ you can pick zero or more tags; there is no way to type a custom one.  
 c. Location picker: defaults to your current location, but you can drag the pin or type an address / place name (geocoded to a point). The **exact spot is never shown on the posting** — distance only. (The real meeting place is shared in chat after matching, so the stored point only needs to be roughly right for the discovery radius.) → ✓ an activity row is created with a location and `host_id` = you; the posting shows no coordinates/address.
 d. "My activities" list for the host. → ✓ your posted activity appears in your own list.
-e. Activity image upload (optional, 1 photo): pick from camera roll, preview before submit, stored in Supabase Storage; image renders on the activity card. → ✓ an activity posts with a photo and it renders on the card; form also submits without a photo. ← current
+e. Activity image upload (optional, 1 photo): pick from camera roll, preview before submit, stored in Supabase Storage; image renders on the activity card. → ✓ an activity posts with a photo and it renders on the card; form also submits without a photo.
 
-## Phase 3 — Discovery stack 
+## Phase 3 — Discovery stack ← current
 a. Radius feed calling `nearby_activities(lat, lng, radius)`; radius in miles. Centers on your current location by default, but you can re-center it (drag, or type an address/place) — that point is where the radius stems from. → ✓ activities inside your radius appear, ones outside don't; re-centering changes the results.
 b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface.
 c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack.
@@ -51,7 +51,7 @@ b. Group chat via Supabase Realtime (in-app). → ✓ two accounts exchange mess
 a. Public profile: photos, age, gender (man/woman/non-binary), name, bio, interest tags from the fixed list. → ✓ another user sees these fields and nothing more.
 b. Photo upload to Supabase Storage. → ✓ a photo uploads and renders on the profile.
 c. Private "activities done" count (derived from the owner's own rows). → ✓ you see your count; another user cannot.
-d. Host edit and cancel before start. → ✓ edit updates details; cancel removes the activity from the stack while matched members keep their chat and event info.
+d. Host edit and cancel before start. → ✓ edit updates details; cancel removes the activity from the stack while matched members keep their chat and event info. Note: swipe-to-cancel already built in Phase 2 cleanup (hard delete if no participants, soft cancel if participants exist). What remains here: edit details + cancel from within the activity detail screen.
 e. Expiry off the stack at start time. → ✓ a started activity no longer appears in discovery; matched members still have chat/event info.
 
 ## Phase 7 — Safety & store-readiness

@@ -95,7 +95,7 @@ export function ActivityCard({ activity, onPress, muted = false }: Props) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.two,
@@ -104,13 +104,14 @@ const styles = StyleSheet.create({
 
   swatch: {
     width: 76,
-    height: 76,
+    height: 101,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     overflow: 'hidden',
   },
+
   swatchDot: {
     width: 26,
     height: 26,

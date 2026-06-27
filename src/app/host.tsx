@@ -75,7 +75,7 @@ export default function HostScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [3, 4],
       quality: 0.8,
     });
     if (!result.canceled) setImageUri(result.assets[0].uri);
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   imagePreview: {
     width: 120,
-    height: 120,
+    height: 160,
     borderRadius: 12,
   },
   imageRemove: {
