@@ -1,5 +1,6 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 
@@ -28,8 +29,14 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={DefaultTheme}>
+      <StatusBar style="dark" />
       <AnimatedSplashOverlay />
-      {session !== undefined && <Stack screenOptions={{ headerShown: false }} />}
+      {session !== undefined && (
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="host" options={{ presentation: 'modal' }} />
+        </Stack>
+      )}
     </ThemeProvider>
   );
 }

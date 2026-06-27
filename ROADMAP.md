@@ -14,14 +14,14 @@ d. Phone OTP (after connecting an SMS provider, e.g. Twilio). → ✓ you receiv
 e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled.
 f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.
 
-## Phase 1 — Data model & security
-a. Run `0001_init.sql` against a local Supabase. → ✓ all tables, types, and functions create with no errors.  ← current
+## Phase 1 — Data model & security ✓
+a. Run `0001_init.sql` against a local Supabase. → ✓ all tables, types, and functions create with no errors.
 b. Generate types: `npx supabase gen types typescript --local`. → ✓ `database.types.ts` exists and reflects the schema.
 c. RLS cross-user checks (sign in as two users). → ✓ user A cannot read user B's `join_requests`; a non-member cannot read an activity's `messages`; a non-host cannot update someone else's activity.
 d. Location lockdown. → ✓ `select location from activities` FAILS for an authenticated user; `nearby_activities()` returns `distance_m` and no coordinates.
 
 ## Phase 2 — Host an activity
-a. Create-activity form: title, description, time + flexible toggle, max participants, accept mode. → ✓ form renders and blocks submit on missing required fields.
+a. Create-activity form: title, description, time + flexible toggle, max participants, accept mode. → ✓ form renders and blocks submit on missing required fields.  ← current
 b. Tag picker from the fixed `tags` list (multi-select, optional). → ✓ you can pick zero or more tags; there is no way to type a custom one.
 c. Location picker: defaults to your current location, but you can drag the pin or type an address / place name (geocoded to a point). The **exact spot is never shown on the posting** — distance only. (The real meeting place is shared in chat after matching, so the stored point only needs to be roughly right for the discovery radius.) → ✓ an activity row is created with a location and `host_id` = you; the posting shows no coordinates/address.
 d. "My activities" list for the host. → ✓ your posted activity appears in your own list.
