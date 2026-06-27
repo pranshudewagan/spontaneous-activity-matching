@@ -27,9 +27,9 @@ c. Location picker: defaults to your current location, but you can drag the pin 
 d. "My activities" list for the host. → ✓ your posted activity appears in your own list.
 e. Activity image upload (optional, 1 photo): pick from camera roll, preview before submit, stored in Supabase Storage; image renders on the activity card. → ✓ an activity posts with a photo and it renders on the card; form also submits without a photo.
 
-## Phase 3 — Discovery stack ← current
+## Phase 3 — Discovery stack 
 a. Radius feed calling `nearby_activities(lat, lng, radius)`; radius in miles. Centers on your current location by default, but you can re-center it (drag, or type an address/place) — that point is where the radius stems from. → ✓ activities inside your radius appear, ones outside don't; re-centering changes the results.
-b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface.
+b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface. ← current
 c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack.
 d. Optional manual filters (tag, distance). → ✓ a filter narrows the feed; clearing it shows everything eligible again; your listed interests do NOT auto-filter.
 e. Confirm the privacy boundary on the wire. → ✓ inspect the network response: only `distance_m`, never lat/lng or an address.

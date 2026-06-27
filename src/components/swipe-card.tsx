@@ -73,8 +73,6 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
-  const scale   = 1 - index * 0.04;
-  const offsetY = index * 10;
 
   const gesture = Gesture.Pan()
     .enabled(isTop)
@@ -85,10 +83,10 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
     .onEnd(e => {
       if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
         const dir = e.translationX > 0 ? 1 : -1;
-        translateX.value = withSpring(dir * (SCREEN_W + CARD_W), { damping: 40 }, () => {
-          if (dir < 0) runOnJS(onSwipeLeft)(activity.id);
-          else         runOnJS(onSwipeRight)(activity.id);
-        });
+        // Notify immediately so the next card is swipeable without waiting for the fly-off
+        if (dir < 0) runOnJS(onSwipeLeft)(activity.id);
+        else         runOnJS(onSwipeRight)(activity.id);
+        translateX.value = withSpring(dir * (SCREEN_W + CARD_W), { damping: 40 });
       } else {
         translateX.value = withSpring(0, { damping: 20 });
         translateY.value = withSpring(0, { damping: 20 });
@@ -98,10 +96,10 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
   const cardStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: isTop ? translateX.value : 0 },
-      { translateY: isTop ? translateY.value + offsetY : offsetY },
+      { translateY: isTop ? translateY.value : 0 },
       { scale: isTop
           ? interpolate(Math.abs(translateX.value), [0, SCREEN_W], [1, 0.95], Extrapolation.CLAMP)
-          : scale },
+          : 1 },
       { rotate: isTop
           ? `${interpolate(translateX.value, [-SCREEN_W, SCREEN_W], [-12, 12], Extrapolation.CLAMP)}deg`
           : '0deg' },
