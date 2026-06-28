@@ -1,10 +1,11 @@
 import * as Location from 'expo-location';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmptyDiscover } from '@/components/empty-discover';
 import { FilterSheet, DEFAULT_FILTERS, type Filters } from '@/components/filter-sheet';
 import { SwipeCard, type SwipeCardData, CARD_H, CARD_W } from '@/components/swipe-card';
 import { ThemedText } from '@/components/themed-text';
@@ -13,20 +14,22 @@ import { takePickedLocation, type PickedLocation } from '@/lib/location-handoff'
 import { supabase } from '@/lib/supabase';
 
 export default function DiscoverScreen() {
-  const router  = useRouter();
-  const theme   = Colors.light;
+  const theme = Colors.light;
 
   const [activities,   setActivities]   = useState<SwipeCardData[]>([]);
   const [passedIds,    setPassedIds]    = useState<Set<string>>(new Set());
   const [currentLoc,   setCurrentLoc]   = useState<PickedLocation | null>(null);
   const [filters,      setFilters]      = useState<Filters>(DEFAULT_FILTERS);
-  const [loading,      setLoading]      = useState(true);
-  const [sheetOpen,    setSheetOpen]    = useState(false);
-  const [feedKey,      setFeedKey]      = useState(0);
+  const [loading,         setLoading]         = useState(true);
+  const [sheetOpen,       setSheetOpen]       = useState(false);
+  const [feedKey,         setFeedKey]         = useState(0);
+  const [appliedFilters,  setAppliedFilters]  = useState<Filters>(DEFAULT_FILTERS);
+
+  // Ref so loadFeed can read current passedIds without being in its deps
+  const passedIdsRef = useRef<Set<string>>(new Set());
 
   const loadFeed = useCallback(async (loc: PickedLocation, f: Filters) => {
     setLoading(true);
-    setPassedIds(new Set());
     setFeedKey(k => k + 1); // force card remount so onLoad always fires
     const radiusM = f.radiusMi * 1609.34;
     const { data, error } = await supabase.rpc('nearby_activities', {
@@ -40,9 +43,11 @@ export default function DiscoverScreen() {
       results = results.filter(a => f.tags.some(t => a.tags.includes(t)));
     }
     setActivities(results);
-    // Empty feed: nothing to wait for — stop spinner now.
-    // Non-empty: top card calls setLoading(false) via onImageReady once its image loads.
-    if (results.length === 0) setLoading(false);
+    setAppliedFilters(f); // record what was actually loaded
+    // Stop spinner immediately if nothing is visible after filtering out already-passed cards
+    const hasVisible = results.some(a => !passedIdsRef.current.has(a.id));
+    if (!hasVisible) setLoading(false);
+    // Otherwise: top card signals via onImageReady once its image loads
   }, []);
 
   const initLocation = useCallback(async () => {
@@ -82,12 +87,20 @@ export default function DiscoverScreen() {
   }, [initLocation, loadFeed, filters]));
 
   const handleSwipeLeft  = useCallback((id: string) => {
-    setPassedIds(prev => new Set(prev).add(id));
+    setPassedIds(prev => {
+      const next = new Set(prev).add(id);
+      passedIdsRef.current = next;
+      return next;
+    });
   }, []);
 
   const handleSwipeRight = useCallback((id: string) => {
     // Phase 4: create join_request here
-    setPassedIds(prev => new Set(prev).add(id));
+    setPassedIds(prev => {
+      const next = new Set(prev).add(id);
+      passedIdsRef.current = next;
+      return next;
+    });
   }, []);
 
   function handleFiltersChange(next: Filters) {
@@ -102,9 +115,14 @@ export default function DiscoverScreen() {
   }
 
   function handleSheetClose() {
+    // Backdrop / back — discard unapplied edits, no reload
+    setSheetOpen(false);
+    setFilters(appliedFilters);
+  }
+
+  function handleApply() {
     setSheetOpen(false);
     const loc = filters.center ?? currentLoc;
-    // Wait for the sheet slide-down animation to finish before swapping the feed
     if (loc) setTimeout(() => loadFeed(loc, filters), 300);
   }
 
@@ -122,45 +140,33 @@ export default function DiscoverScreen() {
 
       {/* Stack */}
       <View style={styles.stackContainer}>
-        {/* Cards always rendered once data is present — spinner overlays them */}
+        {/* Empty state always in the background once loaded — no pop-in after last swipe */}
+        {!loading && <EmptyDiscover onWidenRadius={() => setSheetOpen(true)} />}
+
+        {/* Card stack floats above the empty state as a centered absolute overlay */}
         {visible.length > 0 && (
-          <View style={[styles.stack, { width: CARD_W, height: CARD_H + 20 }]}>
-            {visible.slice(0, 3).reverse().map((activity, reversedIdx) => {
-              const stackLen = Math.min(visible.length, 3);
-              const idx      = stackLen - 1 - reversedIdx;
-              return (
-                <SwipeCard
-                  key={`${activity.id}-${feedKey}`}
-                  activity={activity}
-                  isTop={idx === 0}
-                  index={idx}
-                  onSwipeLeft={handleSwipeLeft}
-                  onSwipeRight={handleSwipeRight}
-                  onImageReady={idx === 0 ? () => setLoading(false) : undefined}
-                />
-              );
-            })}
+          <View style={styles.stackFloat}>
+            <View style={{ width: CARD_W, height: CARD_H + 20 }}>
+              {visible.slice(0, 3).reverse().map((activity, reversedIdx) => {
+                const stackLen = Math.min(visible.length, 3);
+                const idx      = stackLen - 1 - reversedIdx;
+                return (
+                  <SwipeCard
+                    key={`${activity.id}-${feedKey}`}
+                    activity={activity}
+                    isTop={idx === 0}
+                    index={idx}
+                    onSwipeLeft={handleSwipeLeft}
+                    onSwipeRight={handleSwipeRight}
+                    onImageReady={idx === 0 ? () => setLoading(false) : undefined}
+                  />
+                );
+              })}
+            </View>
           </View>
         )}
 
-        {/* Empty state — only visible once loading is done */}
-        {!loading && visible.length === 0 && (
-          <View style={styles.empty}>
-            <ThemedText type="title" style={{ color: theme.ink, textAlign: 'center' }}>
-              Nothing nearby right now
-            </ThemedText>
-            <ThemedText type="body" style={[styles.emptyBody, { color: theme.muted }]}>
-              Try a wider radius, check back later, or post your own plan.
-            </ThemedText>
-            <Pressable
-              style={[styles.emptyBtn, { borderColor: theme.action }]}
-              onPress={() => router.push('/host')}>
-              <ThemedText type="label" style={{ color: theme.action }}>Post a plan</ThemedText>
-            </Pressable>
-          </View>
-        )}
-
-        {/* Opaque spinner overlay — sits on top of cards until image is ready */}
+        {/* Opaque spinner overlay — sits on top of everything until image is ready */}
         {loading && (
           <View style={[styles.loadingOverlay, { backgroundColor: theme.bg }]}>
             <ActivityIndicator color={theme.accent} size="large" />
@@ -171,8 +177,10 @@ export default function DiscoverScreen() {
       <FilterSheet
         visible={sheetOpen}
         filters={filters}
+        appliedFilters={appliedFilters}
         onChange={handleFiltersChange}
         onClose={handleSheetClose}
+        onApply={handleApply}
         onBeforeLocationPicker={handleBeforeLocationPicker}
       />
     </SafeAreaView>
@@ -196,24 +204,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stack: { position: 'relative' },
+  stackFloat: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  empty: {
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.two,
-  },
-  emptyBody: { textAlign: 'center', lineHeight: 22 },
-  emptyBtn: {
-    marginTop: Spacing.one,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
 });

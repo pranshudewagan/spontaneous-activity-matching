@@ -171,7 +171,7 @@ export default function HostScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeBtn}>
           <ThemedText style={styles.closeBtnText}>✕</ThemedText>
         </Pressable>
-        <ThemedText type="title">Host a plan</ThemedText>
+        <ThemedText type="smallBold">Host a plan</ThemedText>
         <View style={styles.closeBtn} />
       </View>
 
@@ -455,10 +455,6 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 80,
     paddingTop: Spacing.two + 2,
-  },
-  charCount: {
-    textAlign: 'right',
-    marginTop: 4,
   },
 
   row: {

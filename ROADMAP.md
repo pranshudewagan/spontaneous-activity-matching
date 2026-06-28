@@ -32,7 +32,8 @@ a. Radius feed calling `nearby_activities(lat, lng, radius)`; radius in miles. C
 b. Swipe UI — cards, swipe left/right. → ✓ swiping advances the stack; left-swiped cards don't resurface.
 c. Exclude past-start activities and your own posts. → ✓ started activities and your own activities never appear in the stack. ⚠️ skipping until multi-user testing is possible (needs a second account — unblocked by verifying a domain in Resend or upgrading Twilio)
 d. Optional manual filters (tag, distance). → ✓ a filter narrows the feed; clearing it shows everything eligible again; your listed interests do NOT auto-filter.
-e. Confirm the privacy boundary on the wire. → ✓ inspect the network response: only `distance_m`, never lat/lng or an address. ← current
+e. Confirm the privacy boundary on the wire. → ✓ inspect the network response: only `distance_m`, never lat/lng or an address.
+f. Undo last pass — a transient "Undo" button appears after a left-swipe and restores that card to the top of the stack. → ✓ tapping Undo brings the card back; it disappears after ~4 s or on the next swipe. ← current
 
 ## Phase 4 — Joining & matching
 a. Right-swipe creates a `join_request` (status `interested`). → ✓ a row appears; a double-swipe/retry does not create a duplicate.

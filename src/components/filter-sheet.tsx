@@ -26,18 +26,32 @@ export const DEFAULT_FILTERS: Filters = {
   center: null,
 };
 
+function filtersEqual(a: Filters, b: Filters): boolean {
+  return (
+    a.radiusMi === b.radiusMi &&
+    a.tags.length === b.tags.length &&
+    a.tags.every(t => b.tags.includes(t)) &&
+    a.center?.latitude  === b.center?.latitude &&
+    a.center?.longitude === b.center?.longitude
+  );
+}
+
 type Props = {
   visible: boolean;
   filters: Filters;
+  appliedFilters: Filters;
   onChange: (f: Filters) => void;
   onClose: () => void;
+  onApply: () => void;
   onBeforeLocationPicker?: () => void;
 };
 
-export function FilterSheet({ visible, filters, onChange, onClose, onBeforeLocationPicker }: Props) {
+export function FilterSheet({ visible, filters, appliedFilters, onChange, onClose, onApply, onBeforeLocationPicker }: Props) {
   const theme  = Colors.light;
   const { bottom } = useSafeAreaInsets();
   const router = useRouter();
+
+  const hasChanged = !filtersEqual(filters, appliedFilters);
 
   function toggleTag(slug: string) {
     const next = filters.tags.includes(slug)
@@ -146,10 +160,10 @@ export function FilterSheet({ visible, filters, onChange, onClose, onBeforeLocat
             <ThemedText type="label" style={{ color: theme.muted }}>Reset</ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.applyBtn, { backgroundColor: theme.action }]}
-            onPress={onClose}
+            style={[styles.applyBtn, { backgroundColor: hasChanged ? theme.action : theme.line }]}
+            onPress={hasChanged ? onApply : undefined}
           >
-            <ThemedText type="label" style={{ color: '#fff' }}>Apply</ThemedText>
+            <ThemedText type="label" style={{ color: hasChanged ? '#fff' : theme.muted }}>Apply</ThemedText>
           </Pressable>
         </View>
       </View>
