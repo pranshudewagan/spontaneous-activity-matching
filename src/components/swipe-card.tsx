@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 
+import { TagChip } from '@/components/tag-chip';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { tagColor } from '@/lib/tags';
@@ -172,11 +173,7 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
           <View style={styles.tagsAndSpots}>
             <View style={styles.tags}>
               {activity.tags.slice(0, 3).map(slug => (
-                <View key={slug} style={[styles.chip, { backgroundColor: tagColor(slug) + '30', borderColor: tagColor(slug) + '60' }]}>
-                  <ThemedText type="caption" style={{ color: tagColor(slug), fontWeight: '700' }}>
-                    {slug.replace('_', ' ')}
-                  </ThemedText>
-                </View>
+                <TagChip key={slug} slug={slug} />
               ))}
             </View>
             <ThemedText type="label" style={[styles.spotsText, { color: theme.accent }]}>
@@ -295,13 +292,6 @@ const styles = StyleSheet.create({
   },
   tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
   spotsText: { fontWeight: '800', flexShrink: 0 },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-
   // Expandable panel — title + time + description, sits above fixed panel
   infoPanel: {
     position: 'absolute',

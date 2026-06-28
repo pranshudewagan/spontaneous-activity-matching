@@ -9,10 +9,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TagChip } from '@/components/tag-chip';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { type PickedLocation } from '@/lib/location-handoff';
-import { TAGS, tagColor } from '@/lib/tags';
+import { TAGS } from '@/lib/tags';
 
 export type Filters = {
   radiusMi: number;
@@ -127,29 +128,14 @@ export function FilterSheet({ visible, filters, appliedFilters, onChange, onClos
             Tags
           </ThemedText>
           <View style={styles.tagGrid}>
-            {TAGS.map(tag => {
-              const active = filters.tags.includes(tag.slug);
-              return (
-                <Pressable
-                  key={tag.slug}
-                  onPress={() => toggleTag(tag.slug)}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: active ? tagColor(tag.slug) + '25' : theme.surface,
-                      borderColor:     active ? tagColor(tag.slug) : theme.line,
-                    },
-                  ]}
-                >
-                  <ThemedText
-                    type="caption"
-                    style={{ color: active ? tagColor(tag.slug) : theme.muted, fontWeight: '600' }}
-                  >
-                    {tag.label}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
+            {TAGS.map(tag => (
+              <TagChip
+                key={tag.slug}
+                slug={tag.slug}
+                selected={filters.tags.includes(tag.slug)}
+                onPress={() => toggleTag(tag.slug)}
+              />
+            ))}
           </View>
 
         </ScrollView>
@@ -229,12 +215,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.one + 2,
-  },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: Spacing.two + 2,
-    paddingVertical: Spacing.one + 2,
   },
 
   footer: {

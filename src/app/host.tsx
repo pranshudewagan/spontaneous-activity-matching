@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { TagChip } from '@/components/tag-chip';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { takePickedLocation, type PickedLocation } from '@/lib/location-handoff';
@@ -463,23 +464,13 @@ export default function HostScreen() {
               const selected = selectedTags.includes(tag.slug);
               const atCap    = !selected && selectedTags.length >= 3;
               return (
-                <Pressable
+                <TagChip
                   key={tag.slug}
+                  slug={tag.slug}
+                  selected={selected}
                   onPress={() => toggleTag(tag.slug)}
                   disabled={atCap}
-                  style={[
-                    styles.chip,
-                    selected
-                      ? { backgroundColor: tag.color + '22', borderColor: tag.color + '55' }
-                      : { backgroundColor: theme.surface, borderColor: theme.line },
-                    atCap && styles.chipDimmed,
-                  ]}>
-                  <ThemedText
-                    type="label"
-                    style={{ color: selected ? tag.color : atCap ? theme.muted : theme.ink, fontWeight: '600' }}>
-                    {tag.label}
-                  </ThemedText>
-                </Pressable>
+                />
               );
             })}
           </View>
@@ -622,16 +613,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: Spacing.two + 4,
-    paddingVertical: Spacing.one + 2,
-  },
-  chipDimmed: {
-    opacity: 0.4,
-  },
-
   segmented: {
     flexDirection: 'row',
     borderWidth: 1,
