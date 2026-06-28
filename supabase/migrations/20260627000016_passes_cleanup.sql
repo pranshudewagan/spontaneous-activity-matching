@@ -20,6 +20,9 @@ create trigger trg_delete_passes_on_cancel
 do $$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    if exists (select 1 from cron.job where jobname = 'cleanup-expired-passes') then
+      perform cron.unschedule('cleanup-expired-passes');
+    end if;
     perform cron.schedule(
       'cleanup-expired-passes',
       '0 * * * *',
