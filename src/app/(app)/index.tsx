@@ -99,6 +99,8 @@ export default function DiscoverScreen() {
     const nextHistory = [...leftSwipeHistoryRef.current, id];
     leftSwipeHistoryRef.current = nextHistory;
     setLeftSwipeHistory(nextHistory);
+    supabase.from('passes').insert({ activity_id: id })
+      .then(({ error }) => { if (error) console.error('pass insert failed:', error); });
   }, []);
 
   const handleUndo = useCallback(() => {
@@ -114,6 +116,8 @@ export default function DiscoverScreen() {
       passedIdsRef.current = next;
       return next;
     });
+    supabase.from('passes').delete().eq('activity_id', id)
+      .then(({ error }) => { if (error) console.error('pass delete failed:', error); });
   }, []);
 
   const handleSwipeRight = useCallback((id: string) => {

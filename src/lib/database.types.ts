@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -167,6 +168,32 @@ export type Database = {
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      passes: {
+        Row: {
+          activity_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          user_id?: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passes_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
             referencedColumns: ["id"]
           },
         ]
