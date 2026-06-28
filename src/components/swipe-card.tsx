@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   title:       { fontSize: 20, fontWeight: '700', lineHeight: 26, color: '#fff' },
-  time:        { fontWeight: '700' },
+  time:        { fontWeight: '800' },
   description: { color: 'rgba(255,255,255,0.85)', fontWeight: '700' },
   showMore:    { color: 'rgba(255,255,255,0.6)', fontWeight: '700', fontSize: 12 },
 });

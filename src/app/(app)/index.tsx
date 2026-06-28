@@ -2,8 +2,8 @@ import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyDiscover } from '@/components/empty-discover';
 import { FilterSheet, DEFAULT_FILTERS, type Filters } from '@/components/filter-sheet';
@@ -25,7 +25,10 @@ export default function DiscoverScreen() {
   const [sheetOpen,       setSheetOpen]       = useState(false);
   const [feedKey,         setFeedKey]         = useState(0);
   const [appliedFilters,  setAppliedFilters]  = useState<Filters>(DEFAULT_FILTERS);
-  const [containerH,     setContainerH]     = useState(0);
+  const [headerH,        setHeaderH]        = useState(0);
+
+  const { height: windowH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   // Refs so callbacks can read current values without stale closures
   const passedIdsRef        = useRef<Set<string>>(new Set());
@@ -155,12 +158,14 @@ export default function DiscoverScreen() {
 
   const visible = activities.filter(a => !passedIds.has(a.id));
   const canUndo = leftSwipeHistory.length > 0;
-  const cardH   = containerH > 0 ? containerH - BottomTabInset - 24 : CARD_H;
+  const cardH   = headerH > 0
+    ? windowH - insets.top - insets.bottom - headerH - BottomTabInset - 24
+    : CARD_H;
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.line }]}>
+      <View style={[styles.header, { borderBottomColor: theme.line }]} onLayout={e => setHeaderH(e.nativeEvent.layout.height)}>
         <ThemedText type="title">Discover</ThemedText>
         <View style={styles.headerActions}>
           <Pressable onPress={handleUndo} hitSlop={8} disabled={!canUndo}>
@@ -177,12 +182,12 @@ export default function DiscoverScreen() {
       </View>
 
       {/* Stack */}
-      <View style={styles.stackContainer} onLayout={e => setContainerH(e.nativeEvent.layout.height)}>
+      <View style={styles.stackContainer}>
         {/* Empty state always in the background once loaded — no pop-in after last swipe */}
         {!loading && <EmptyDiscover onWidenRadius={() => setSheetOpen(true)} />}
 
         {/* Card stack floats above the empty state as a centered absolute overlay */}
-        {visible.length > 0 && (
+        {visible.length > 0 && headerH > 0 && (
           <View style={[styles.stackFloat, { bottom: BottomTabInset / 2 }]}>
             <View style={{ width: CARD_W, height: cardH + 20 }}>
               {visible.slice(0, 3).reverse().map((activity, reversedIdx) => {
@@ -247,6 +252,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFAF8',
   },
   stackFloat: {
     ...StyleSheet.absoluteFillObject,

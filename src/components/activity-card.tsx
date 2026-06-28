@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title:    { fontSize: 15, fontWeight: '600' },
-  time:     { fontWeight: '600' },
+  time:     { fontWeight: '800' },
   distance: { marginTop: 1, fontWeight: '600' },
   capacity: { marginTop: Spacing.one, fontWeight: '600' },
 
