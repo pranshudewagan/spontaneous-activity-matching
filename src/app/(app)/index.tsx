@@ -125,12 +125,13 @@ export default function DiscoverScreen() {
   }, []);
 
   const handleSwipeRight = useCallback((id: string) => {
-    // Phase 4: create join_request here
     setPassedIds(prev => {
       const next = new Set(prev).add(id);
       passedIdsRef.current = next;
       return next;
     });
+    supabase.rpc('request_to_join', { p_activity_id: id })
+      .then(({ error }) => { if (error) console.error('request_to_join failed:', error); });
   }, []);
 
   function handleFiltersChange(next: Filters) {

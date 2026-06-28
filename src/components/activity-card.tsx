@@ -13,7 +13,7 @@ export type ActivityCardData = {
   time_flexible: boolean;
   max_participants: number;
   accepted_count: number;
-  distance_m: number;
+  distance_m?: number;
   tags: string[];
   image_url?: string | null;
 };
@@ -78,9 +78,11 @@ export function ActivityCard({ activity, onPress, muted = false }: Props) {
         <ThemedText type="caption" style={[styles.time, { color: theme.action }]} numberOfLines={1}>
           {formatTime(activity.start_time, activity.time_flexible)}
         </ThemedText>
-        <ThemedText type="caption" style={[styles.distance, { color: theme.muted }]}>
-          {formatDistance(activity.distance_m)}
-        </ThemedText>
+        {activity.distance_m != null && (
+          <ThemedText type="caption" style={[styles.distance, { color: theme.muted }]}>
+            {formatDistance(activity.distance_m)}
+          </ThemedText>
+        )}
         <ThemedText type="caption" style={[styles.capacity, { color: theme.accent }]}>
           {going} / {total} going
         </ThemedText>

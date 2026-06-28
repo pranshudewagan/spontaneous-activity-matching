@@ -15,25 +15,43 @@ import { Swipeable, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActivityCard, type ActivityCardData } from '@/components/activity-card';
+import { EmptyHosting, EmptyJoined } from '@/components/empty-my-plans';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 type Tab = 'hosting' | 'joined';
 
+type JoinedActivity = ActivityCardData & {
+  join_status: 'interested' | 'waitlisted' | 'accepted';
+  joined_at: string;
+};
+
+const STATUS_LABEL: Record<JoinedActivity['join_status'], string> = {
+  accepted:   'Accepted',
+  waitlisted: 'Waitlisted',
+  interested: 'Pending',
+};
+const STATUS_COLOR: Record<JoinedActivity['join_status'], string> = {
+  accepted:   '#1E9E8E',
+  waitlisted: '#E09020',
+  interested: '#E09020',
+};
+
 export default function MyPlansScreen() {
   const router = useRouter();
   const theme  = Colors.light;
   const { bottom } = useSafeAreaInsets();
 
-  const [activeTab,   setActiveTab]   = useState<Tab>('hosting');
-  const [activities,  setActivities]  = useState<ActivityCardData[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
+  const [activeTab,        setActiveTab]        = useState<Tab>('hosting');
+  const [activities,       setActivities]       = useState<ActivityCardData[]>([]);
+  const [joinedActivities, setJoinedActivities] = useState<JoinedActivity[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [refreshing,       setRefreshing]       = useState(false);
 
   useEffect(() => {
     if (activeTab === 'hosting') loadHosted();
-    else setLoading(false);
+    else loadJoined();
   }, [activeTab]);
 
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -58,7 +76,6 @@ export default function MyPlansScreen() {
             const { error } = await supabase.from('activities').update({ status: 'cancelled' }).eq('id', item.id);
             if (error) { console.error(error); return; }
           } else {
-            // Edge Function handles row delete + storage cleanup atomically
             const { error } = await supabase.functions.invoke('delete-activity', {
               body: { activity_id: item.id },
             });
@@ -84,6 +101,19 @@ export default function MyPlansScreen() {
       const { data, error } = await supabase.rpc('my_hosted_activities', { p_lat: lat, p_lng: lng });
       if (error) { console.error(error); return; }
       setActivities((data ?? []) as ActivityCardData[]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const loadJoined = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('my_joined_activities');
+      if (error) { console.error(error); return; }
+      setJoinedActivities((data ?? []) as JoinedActivity[]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -129,14 +159,9 @@ export default function MyPlansScreen() {
           <ScrollView
             contentContainerStyle={styles.center}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.action} />
+              <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.accent} />
             }>
-            <ThemedText type="body" style={{ color: theme.muted, textAlign: 'center' }}>
-              You haven't posted anything yet.
-            </ThemedText>
-            <Pressable onPress={() => router.push('/host')} style={{ marginTop: Spacing.two }}>
-              <ThemedText type="label" style={{ color: theme.accent }}>Post a plan</ThemedText>
-            </Pressable>
+            <EmptyHosting />
           </ScrollView>
         ) : (
           <FlatList
@@ -174,26 +199,44 @@ export default function MyPlansScreen() {
             }}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.action} />
+              <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.accent} />
             }
           />
         )
-      ) : (
+      ) : loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={theme.action} />
+        </View>
+      ) : joinedActivities.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.center}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => setRefreshing(false)} tintColor={theme.action} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
           }>
-          <ThemedText type="body" style={{ color: theme.muted, textAlign: 'center', fontWeight: '600' }}>
-            Nothing joined yet.
-          </ThemedText>
-          <ThemedText type="caption" style={{ color: theme.muted, textAlign: 'center', marginTop: Spacing.one }}>
-            Find something nearby in Discover.
-          </ThemedText>
-          <Pressable onPress={() => router.navigate('/(app)')} style={{ marginTop: Spacing.two }}>
-            <ThemedText type="label" style={{ color: theme.accent }}>Browse plans</ThemedText>
-          </Pressable>
+          <EmptyJoined />
         </ScrollView>
+      ) : (
+        <FlatList
+          data={joinedActivities}
+          keyExtractor={a => a.id}
+          style={styles.fill}
+          contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
+          renderItem={({ item }) => (
+            <View>
+              <ActivityCard activity={item} />
+              <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.join_status] + '18', borderColor: STATUS_COLOR[item.join_status] + '50' }]}>
+                <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.join_status] }]} />
+                <ThemedText type="caption" style={{ color: STATUS_COLOR[item.join_status], fontWeight: '600' }}>
+                  {STATUS_LABEL[item.join_status]}
+                </ThemedText>
+              </View>
+            </View>
+          )}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
+          }
+        />
       )}
     </SafeAreaView>
   );
@@ -239,4 +282,23 @@ const styles = StyleSheet.create({
   },
   cancelActionText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
+
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: -Spacing.two,
+    marginBottom: Spacing.two,
+    marginLeft: Spacing.two,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
 });

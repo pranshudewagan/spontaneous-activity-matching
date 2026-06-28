@@ -1,4 +1,3 @@
-Connecting to db 5432
 export type Json =
   | string
   | number
@@ -8,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -603,6 +607,21 @@ export type Database = {
           title: string
         }[]
       }
+      my_joined_activities: {
+        Args: never
+        Returns: {
+          accepted_count: number
+          id: string
+          image_url: string
+          join_status: Database["public"]["Enums"]["join_status"]
+          joined_at: string
+          max_participants: number
+          start_time: string
+          tags: string[]
+          time_flexible: boolean
+          title: string
+        }[]
+      }
       nearby_activities: {
         Args: { p_lat: number; p_lng: number; p_radius_m: number }
         Returns: {
@@ -661,6 +680,7 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      request_to_join: { Args: { p_activity_id: string }; Returns: undefined }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -1417,4 +1437,3 @@ export const Constants = {
     },
   },
 } as const
-
