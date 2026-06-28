@@ -194,16 +194,18 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, o
             {formatTime(activity.start_time, activity.time_flexible)}
           </ThemedText>
           {!!activity.description && (
-            <ThemedText
-              type="caption"
-              style={styles.description}
-              numberOfLines={isTruncated && !expanded ? 3 : undefined}
-              onTextLayout={e => {
-                if (!isTruncated && e.nativeEvent.lines.length > 3) setIsTruncated(true);
-              }}
-            >
-              {activity.description}
-            </ThemedText>
+            <Pressable onPress={() => setExpanded(p => !p)} disabled={!isTruncated}>
+              <ThemedText
+                type="caption"
+                style={styles.description}
+                numberOfLines={isTruncated && !expanded ? 3 : undefined}
+                onTextLayout={e => {
+                  if (!isTruncated && e.nativeEvent.lines.length > 3) setIsTruncated(true);
+                }}
+              >
+                {activity.description}
+              </ThemedText>
+            </Pressable>
           )}
         </Animated.View>
 
