@@ -2,8 +2,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -23,15 +23,26 @@ import { TAGS } from '@/lib/tags';
 
 type AcceptMode = 'auto' | 'auto_criteria' | 'manual';
 
+type FormSnapshot = {
+  title: string;
+  description: string;
+  startTime: number;
+  timeFlexible: boolean;
+  maxParticipants: number;
+  mode: AcceptMode;
+  tags: string[];
+  imageUri: string | null;
+  removeExistingImage: boolean;
+};
+
 const MODES: { value: AcceptMode; label: string }[] = [
-  { value: 'auto',          label: 'Everyone'  },
-  { value: 'auto_criteria', label: 'Screen'    },
+  { value: 'auto',          label: 'Everyone'    },
+  { value: 'auto_criteria', label: 'Screen'      },
   { value: 'manual',        label: "I'll decide" },
 ];
 
 function defaultStartTime(): Date {
   const d = new Date();
-  // Snap to next 30-min boundary at least 30 min from now
   const mins = d.getMinutes();
   d.setMinutes(mins < 30 ? 30 : 60, 0, 0);
   if (d.getTime() - Date.now() < 30 * 60 * 1000) d.setHours(d.getHours() + 1, 0, 0, 0);
@@ -52,18 +63,60 @@ function formatDateTime(date: Date): string {
 export default function HostScreen() {
   const router = useRouter();
   const theme = Colors.light;
+  const { id: routeId } = useLocalSearchParams<{ id?: string }>();
 
-  const [title,           setTitle]           = useState('');
-  const [description,     setDescription]     = useState('');
-  const [startTime,       setStartTime]       = useState<Date>(defaultStartTime);
-  const [timeFlexible,    setTimeFlexible]    = useState(false);
-  const [maxParticipants, setMaxParticipants] = useState(4);
-  const [mode,            setMode]            = useState<AcceptMode>('auto');
-  const [showPicker,      setShowPicker]      = useState(false);
-  const [selectedTags,    setSelectedTags]    = useState<string[]>([]);
-  const [location,        setLocation]        = useState<PickedLocation | null>(null);
-  const [imageUri,        setImageUri]        = useState<string | null>(null);
-  const [postState,       setPostState]       = useState<'idle' | 'posting' | 'posted'>('idle');
+  const [activityId,          setActivityId]          = useState<string | null>(routeId ?? null);
+  const [loadingActivity,     setLoadingActivity]     = useState(!!routeId);
+  const [title,               setTitle]               = useState('');
+  const [description,         setDescription]         = useState('');
+  const [startTime,           setStartTime]           = useState<Date>(defaultStartTime);
+  const [timeFlexible,        setTimeFlexible]        = useState(false);
+  const [maxParticipants,     setMaxParticipants]     = useState(4);
+  const [mode,                setMode]                = useState<AcceptMode>('auto');
+  const [showPicker,          setShowPicker]          = useState(false);
+  const [selectedTags,        setSelectedTags]        = useState<string[]>([]);
+  const [location,            setLocation]            = useState<PickedLocation | null>(null);
+  const [imageUri,            setImageUri]            = useState<string | null>(null);
+  const [existingImageUrl,    setExistingImageUrl]    = useState<string | null>(null);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [submitState,         setSubmitState]         = useState<'idle' | 'submitting' | 'posted' | 'updated'>('idle');
+
+  const savedSnapshot = useRef<FormSnapshot | null>(null);
+
+  useEffect(() => {
+    if (!routeId) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('title, description, start_time, time_flexible, max_participants, mode, tags, image_url')
+        .eq('id', routeId)
+        .single();
+      if (error || !data) { setLoadingActivity(false); return; }
+
+      setTitle(data.title);
+      setDescription(data.description ?? '');
+      const st = new Date(data.start_time);
+      setStartTime(st);
+      setTimeFlexible(data.time_flexible);
+      setMaxParticipants(data.max_participants);
+      setMode(data.mode as AcceptMode);
+      setSelectedTags(data.tags ?? []);
+      setExistingImageUrl(data.image_url ?? null);
+
+      savedSnapshot.current = {
+        title:               data.title,
+        description:         data.description ?? '',
+        startTime:           st.getTime(),
+        timeFlexible:        data.time_flexible,
+        maxParticipants:     data.max_participants,
+        mode:                data.mode as AcceptMode,
+        tags:                data.tags ?? [],
+        imageUri:            null,
+        removeExistingImage: false,
+      };
+      setLoadingActivity(false);
+    })();
+  }, [routeId]);
 
   useFocusEffect(useCallback(() => {
     const picked = takePickedLocation();
@@ -74,9 +127,6 @@ export default function HostScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return;
 
-    // Android: native 3:4 crop box via aspect prop.
-    // iOS: system picker ignores aspect and forces a square crop box — skip editing
-    // and auto-center-crop to 3:4 after selection instead.
     const isIOS = Platform.OS === 'ios';
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -116,20 +166,34 @@ export default function HostScreen() {
     );
   };
 
-  const canSubmit =
-    postState === 'idle' &&
-    title.trim().length > 0 &&
-    startTime > new Date() &&
-    location !== null;
+  const snap = savedSnapshot.current;
+  const isDirty = snap !== null && (
+    title              !== snap.title ||
+    description        !== snap.description ||
+    startTime.getTime()!== snap.startTime ||
+    timeFlexible       !== snap.timeFlexible ||
+    maxParticipants    !== snap.maxParticipants ||
+    mode               !== snap.mode ||
+    JSON.stringify(selectedTags) !== JSON.stringify(snap.tags) ||
+    imageUri           !== snap.imageUri ||
+    removeExistingImage!== snap.removeExistingImage
+  );
+
+  const baseFormValid = title.trim().length > 0 && startTime > new Date();
+  const canPost   = !activityId && baseFormValid && location !== null;
+  const canUpdate = !!activityId && baseFormValid && isDirty;
+  const canAct    = (canPost || canUpdate) && submitState !== 'submitting';
+
+  const showConfirmation = (submitState === 'posted' || submitState === 'updated') && !isDirty;
 
   const handleSubmit = async () => {
-    if (!canSubmit || !location) return;
-    setPostState('posting');
+    if (!canAct) return;
+    setSubmitState('submitting');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setPostState('idle'); return; }
+      if (!user) { setSubmitState('idle'); return; }
 
-      let image_url: string | null = null;
+      let image_url: string | null | undefined = undefined;
       if (imageUri) {
         const path        = `${user.id}/${Date.now()}.jpg`;
         const fileRes     = await fetch(imageUri);
@@ -137,32 +201,102 @@ export default function HostScreen() {
         const { error: uploadError } = await supabase.storage
           .from('activity-images')
           .upload(path, arrayBuffer, { contentType: 'image/jpeg' });
-        if (uploadError) { console.error(uploadError); setPostState('idle'); return; }
+        if (uploadError) { console.error(uploadError); setSubmitState('idle'); return; }
         const { data: { publicUrl } } = supabase.storage
           .from('activity-images')
           .getPublicUrl(path);
         image_url = publicUrl;
+      } else if (removeExistingImage) {
+        image_url = null;
       }
 
-      const { error } = await supabase.from('activities').insert({
-        host_id:          user.id,
-        title:            title.trim(),
-        description:      description.trim() || null,
-        start_time:       startTime.toISOString(),
-        time_flexible:    timeFlexible,
-        max_participants: maxParticipants,
-        mode,
-        tags:             selectedTags,
-        location:         `POINT(${location.longitude} ${location.latitude})`,
-        image_url,
-      });
-      if (error) { console.error(error); setPostState('idle'); return; }
-      setPostState('posted');
+      if (activityId) {
+        const patch: Record<string, unknown> = {
+          title:            title.trim(),
+          description:      description.trim() || null,
+          start_time:       startTime.toISOString(),
+          time_flexible:    timeFlexible,
+          max_participants: maxParticipants,
+          mode,
+          tags:             selectedTags,
+        };
+        if (image_url !== undefined) patch.image_url = image_url;
+        if (location) patch.location = `POINT(${location.longitude} ${location.latitude})`;
+
+        const { error } = await supabase.from('activities').update(patch).eq('id', activityId);
+        if (error) { console.error(error); setSubmitState('idle'); return; }
+
+        if (image_url !== undefined) setExistingImageUrl(image_url);
+        setImageUri(null);
+        setRemoveExistingImage(false);
+        setLocation(null);
+        savedSnapshot.current = {
+          title:               title.trim(),
+          description:         description.trim(),
+          startTime:           startTime.getTime(),
+          timeFlexible,
+          maxParticipants,
+          mode,
+          tags:                [...selectedTags],
+          imageUri:            null,
+          removeExistingImage: false,
+        };
+        setSubmitState('updated');
+      } else {
+        const { data: newRow, error } = await supabase.from('activities').insert({
+          host_id:          user.id,
+          title:            title.trim(),
+          description:      description.trim() || null,
+          start_time:       startTime.toISOString(),
+          time_flexible:    timeFlexible,
+          max_participants: maxParticipants,
+          mode,
+          tags:             selectedTags,
+          location:         `POINT(${location!.longitude} ${location!.latitude})`,
+          image_url:        image_url ?? null,
+        }).select('id').single();
+        if (error || !newRow) { console.error(error); setSubmitState('idle'); return; }
+
+        setActivityId(newRow.id);
+        setImageUri(null);
+        setLocation(null);
+        savedSnapshot.current = {
+          title:               title.trim(),
+          description:         description.trim(),
+          startTime:           startTime.getTime(),
+          timeFlexible,
+          maxParticipants,
+          mode,
+          tags:                [...selectedTags],
+          imageUri:            null,
+          removeExistingImage: false,
+        };
+        setSubmitState('posted');
+      }
     } catch (e) {
       console.error(e);
-      setPostState('idle');
+      setSubmitState('idle');
     }
   };
+
+  const displayImageUri = imageUri ?? (!removeExistingImage ? existingImageUrl : null);
+
+  if (loadingActivity) {
+    return (
+      <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
+        <View style={[styles.header, { borderBottomColor: theme.line }]}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeBtn}>
+            <ThemedText style={styles.closeBtnText}>✕</ThemedText>
+          </Pressable>
+          <ThemedText type="smallBold">Edit plan</ThemedText>
+          <View style={styles.closeBtn} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={theme.action} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
@@ -171,7 +305,7 @@ export default function HostScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeBtn}>
           <ThemedText style={styles.closeBtnText}>✕</ThemedText>
         </Pressable>
-        <ThemedText type="smallBold">Host a plan</ThemedText>
+        <ThemedText type="smallBold">{activityId ? 'Edit plan' : 'Host a plan'}</ThemedText>
         <View style={styles.closeBtn} />
       </View>
 
@@ -192,7 +326,7 @@ export default function HostScreen() {
             value={title}
             onChangeText={setTitle}
             returnKeyType="next"
-            autoFocus
+            autoFocus={!routeId}
           />
         </View>
 
@@ -277,14 +411,18 @@ export default function HostScreen() {
             Where?
           </ThemedText>
           <Pressable
-            style={[styles.row, { borderColor: location ? theme.action : theme.line }]}
+            style={[styles.row, { borderColor: (location || activityId) ? theme.action : theme.line }]}
             onPress={() => router.push(
               location
                 ? { pathname: '/location-picker', params: { lat: location.latitude, lng: location.longitude } }
                 : '/location-picker'
             )}>
-            <ThemedText type="body" style={{ color: location ? theme.ink : theme.muted }}>
-              {location ? location.label : 'Set a rough area…'}
+            <ThemedText type="body" style={{ color: (location || activityId) ? theme.ink : theme.muted }}>
+              {location
+                ? location.label
+                : activityId
+                  ? 'Location set (tap to change)'
+                  : 'Set a rough area…'}
             </ThemedText>
             <ThemedText type="body" style={{ color: theme.muted }}>›</ThemedText>
           </Pressable>
@@ -378,12 +516,15 @@ export default function HostScreen() {
             Photo{' '}
             <ThemedText type="caption" style={{ color: theme.muted }}>(optional)</ThemedText>
           </ThemedText>
-          {imageUri ? (
+          {displayImageUri ? (
             <View style={styles.imagePreviewWrap}>
-              <Image source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" />
+              <Image source={{ uri: displayImageUri }} style={styles.imagePreview} contentFit="cover" />
               <Pressable
                 style={[styles.imageRemove, { backgroundColor: theme.bg }]}
-                onPress={() => setImageUri(null)}
+                onPress={() => {
+                  if (imageUri) setImageUri(null);
+                  else setRemoveExistingImage(true);
+                }}
                 hitSlop={8}>
                 <ThemedText style={[styles.imageRemoveText, { color: theme.ink }]}>✕</ThemedText>
               </Pressable>
@@ -404,19 +545,21 @@ export default function HostScreen() {
           </ThemedText>
         </View>
 
-        {/* Post it CTA */}
+        {/* Submit CTA */}
         <Pressable
           style={[styles.cta, {
             backgroundColor:
-              postState === 'posted' ? theme.accent :
-              canSubmit            ? theme.action : theme.line,
+              showConfirmation ? theme.accent :
+              canAct           ? theme.action : theme.line,
           }]}
           onPress={handleSubmit}
-          disabled={!canSubmit}>
-          {postState === 'posting'
+          disabled={!canAct}>
+          {submitState === 'submitting'
             ? <ActivityIndicator color="#FFFFFF" />
             : <ThemedText type="label" style={styles.ctaText}>
-                {postState === 'posted' ? 'Posted! ✓' : 'Post it ✦'}
+                {showConfirmation
+                  ? (submitState === 'posted' ? 'Posted! ✓' : 'Updated! ✓')
+                  : activityId ? 'Update' : 'Post it ✦'}
               </ThemedText>
           }
         </Pressable>
@@ -456,6 +599,10 @@ const styles = StyleSheet.create({
     minHeight: 80,
     paddingTop: Spacing.two + 2,
   },
+  charCount: {
+    marginTop: 4,
+    textAlign: 'right',
+  },
 
   row: {
     flexDirection: 'row',
@@ -466,7 +613,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 4,
   },
-  stepBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  stepBtn:   { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   stepBtnText: { lineHeight: 28 },
   stepValue:   { minWidth: 40, textAlign: 'center' },
 

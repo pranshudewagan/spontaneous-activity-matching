@@ -11,7 +11,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+import { Swipeable, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActivityCard, type ActivityCardData } from '@/components/activity-card';
@@ -161,7 +161,13 @@ export default function MyPlansScreen() {
                     </Pressable>
                   )}>
                   <View style={{ backgroundColor: theme.bg }}>
-                    <ActivityCard activity={item} muted={isPast} />
+                    {!isPast ? (
+                      <TouchableOpacity activeOpacity={0.7} onPress={() => router.push({ pathname: '/host', params: { id: item.id } })}>
+                        <ActivityCard activity={item} />
+                      </TouchableOpacity>
+                    ) : (
+                      <ActivityCard activity={item} muted />
+                    )}
                   </View>
                 </Swipeable>
               );
