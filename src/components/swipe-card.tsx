@@ -177,7 +177,7 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
                 </View>
               ))}
             </View>
-            <ThemedText type="caption" style={{ color: '#fff', fontWeight: '700', flexShrink: 0 }}>
+            <ThemedText type="label" style={[styles.spotsText, { color: theme.accent }]}>
               {spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} left` : 'Full'}
             </ThemedText>
           </View>
@@ -292,6 +292,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
+  spotsText: { fontWeight: '800', flexShrink: 0 },
   chip: {
     borderWidth: 1,
     borderRadius: 20,
