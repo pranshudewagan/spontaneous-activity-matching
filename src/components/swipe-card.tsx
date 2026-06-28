@@ -78,6 +78,8 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const tiltOffset = (index % 3) * 1.5;
+
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
@@ -109,8 +111,8 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
           ? interpolate(Math.abs(translateX.value), [0, SCREEN_W], [1, 0.95], Extrapolation.CLAMP)
           : 1 },
       { rotate: isTop
-          ? `${interpolate(translateX.value, [-SCREEN_W, SCREEN_W], [-12, 12], Extrapolation.CLAMP)}deg`
-          : '0deg' },
+          ? `${interpolate(translateX.value, [-SCREEN_W, SCREEN_W], [-12 + tiltOffset, 12], Extrapolation.CLAMP)}deg`
+          : `${tiltOffset}deg` },
     ],
   }));
 
