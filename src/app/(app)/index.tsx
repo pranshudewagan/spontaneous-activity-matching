@@ -1,40 +1,48 @@
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FilterSheet, DEFAULT_FILTERS, type Filters } from '@/components/filter-sheet';
 import { SwipeCard, type SwipeCardData, CARD_H, CARD_W } from '@/components/swipe-card';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { takePickedLocation, type PickedLocation } from '@/lib/location-handoff';
 import { supabase } from '@/lib/supabase';
 
-const DEFAULT_RADIUS_M = 16093; // 10 miles
-
 export default function DiscoverScreen() {
-  const router = useRouter();
-  const theme  = Colors.light;
+  const router  = useRouter();
+  const theme   = Colors.light;
 
-  const [activities, setActivities] = useState<SwipeCardData[]>([]);
-  const [passedIds,  setPassedIds]  = useState<Set<string>>(new Set());
-  const [center,     setCenter]     = useState<PickedLocation | null>(null);
-  const [loading,    setLoading]    = useState(true);
+  const [activities,   setActivities]   = useState<SwipeCardData[]>([]);
+  const [passedIds,    setPassedIds]    = useState<Set<string>>(new Set());
+  const [currentLoc,   setCurrentLoc]   = useState<PickedLocation | null>(null);
+  const [filters,      setFilters]      = useState<Filters>(DEFAULT_FILTERS);
+  const [loading,      setLoading]      = useState(true);
+  const [sheetOpen,    setSheetOpen]    = useState(false);
+  const [feedKey,      setFeedKey]      = useState(0);
 
-  const loadFeed = useCallback(async (loc: PickedLocation) => {
+  const loadFeed = useCallback(async (loc: PickedLocation, f: Filters) => {
     setLoading(true);
     setPassedIds(new Set());
-    try {
-      const { data, error } = await supabase.rpc('nearby_activities', {
-        p_lat:      loc.latitude,
-        p_lng:      loc.longitude,
-        p_radius_m: DEFAULT_RADIUS_M,
-      });
-      if (error) { console.error(error); return; }
-      setActivities((data ?? []) as SwipeCardData[]);
-    } finally {
-      setLoading(false);
+    setFeedKey(k => k + 1); // force card remount so onLoad always fires
+    const radiusM = f.radiusMi * 1609.34;
+    const { data, error } = await supabase.rpc('nearby_activities', {
+      p_lat:      loc.latitude,
+      p_lng:      loc.longitude,
+      p_radius_m: radiusM,
+    });
+    if (error) { console.error(error); setLoading(false); return; }
+    let results = (data ?? []) as SwipeCardData[];
+    if (f.tags.length > 0) {
+      results = results.filter(a => f.tags.some(t => a.tags.includes(t)));
     }
+    setActivities(results);
+    // Empty feed: nothing to wait for — stop spinner now.
+    // Non-empty: top card calls setLoading(false) via onImageReady once its image loads.
+    if (results.length === 0) setLoading(false);
   }, []);
 
   const initLocation = useCallback(async () => {
@@ -46,23 +54,34 @@ export default function DiscoverScreen() {
       longitude: pos.coords.longitude,
       label:     'Current location',
     };
-    setCenter(loc);
-    loadFeed(loc);
-  }, [loadFeed]);
+    setCurrentLoc(loc);
+    loadFeed(loc, filters);
+  }, [loadFeed, filters]);
 
+  const reopenAfterPicker = useRef(false);
   const initialized = useRef(false);
+
   useFocusEffect(useCallback(() => {
     const picked = takePickedLocation();
     if (picked) {
-      setCenter(picked);
-      loadFeed(picked);
+      const next = { ...filters, center: picked };
+      setFilters(next);
+      if (reopenAfterPicker.current) {
+        reopenAfterPicker.current = false;
+        setSheetOpen(true);
+      } else {
+        loadFeed(picked, next);
+      }
+    } else if (reopenAfterPicker.current) {
+      reopenAfterPicker.current = false;
+      setSheetOpen(true);
     } else if (!initialized.current) {
       initialized.current = true;
       initLocation();
     }
-  }, [initLocation, loadFeed]));
+  }, [initLocation, loadFeed, filters]));
 
-  const handleSwipeLeft = useCallback((id: string) => {
+  const handleSwipeLeft  = useCallback((id: string) => {
     setPassedIds(prev => new Set(prev).add(id));
   }, []);
 
@@ -71,6 +90,24 @@ export default function DiscoverScreen() {
     setPassedIds(prev => new Set(prev).add(id));
   }, []);
 
+  function handleFiltersChange(next: Filters) {
+    setFilters(next);
+    if (next.center) setCurrentLoc(next.center);
+  }
+
+  function handleBeforeLocationPicker() {
+    // Close the sheet without reloading — useFocusEffect will reopen it on return
+    reopenAfterPicker.current = true;
+    setSheetOpen(false);
+  }
+
+  function handleSheetClose() {
+    setSheetOpen(false);
+    const loc = filters.center ?? currentLoc;
+    // Wait for the sheet slide-down animation to finish before swapping the feed
+    if (loc) setTimeout(() => loadFeed(loc, filters), 300);
+  }
+
   const visible = activities.filter(a => !passedIds.has(a.id));
 
   return (
@@ -78,26 +115,36 @@ export default function DiscoverScreen() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.line }]}>
         <ThemedText type="title">Discover</ThemedText>
-        <Pressable
-          style={[styles.locationPill, { backgroundColor: theme.surface, borderColor: theme.line }]}
-          onPress={() => router.push(
-            center
-              ? { pathname: '/location-picker', params: { lat: center.latitude, lng: center.longitude } }
-              : '/location-picker'
-          )}>
-          <ThemedText type="caption" style={{ color: theme.muted }}>📍 </ThemedText>
-          <ThemedText type="caption" style={{ color: theme.ink, fontWeight: '600' }} numberOfLines={1}>
-            {center ? center.label : 'Set location'}
-          </ThemedText>
-          <ThemedText type="caption" style={{ color: theme.muted }}> · 10 mi</ThemedText>
+        <Pressable onPress={() => setSheetOpen(true)} hitSlop={8}>
+          <Ionicons name="options-outline" size={24} color={theme.ink} />
         </Pressable>
       </View>
 
       {/* Stack */}
       <View style={styles.stackContainer}>
-        {loading ? (
-          <ActivityIndicator color={theme.action} size="large" />
-        ) : visible.length === 0 ? (
+        {/* Cards always rendered once data is present — spinner overlays them */}
+        {visible.length > 0 && (
+          <View style={[styles.stack, { width: CARD_W, height: CARD_H + 20 }]}>
+            {visible.slice(0, 3).reverse().map((activity, reversedIdx) => {
+              const stackLen = Math.min(visible.length, 3);
+              const idx      = stackLen - 1 - reversedIdx;
+              return (
+                <SwipeCard
+                  key={`${activity.id}-${feedKey}`}
+                  activity={activity}
+                  isTop={idx === 0}
+                  index={idx}
+                  onSwipeLeft={handleSwipeLeft}
+                  onSwipeRight={handleSwipeRight}
+                  onImageReady={idx === 0 ? () => setLoading(false) : undefined}
+                />
+              );
+            })}
+          </View>
+        )}
+
+        {/* Empty state — only visible once loading is done */}
+        {!loading && visible.length === 0 && (
           <View style={styles.empty}>
             <ThemedText type="title" style={{ color: theme.ink, textAlign: 'center' }}>
               Nothing nearby right now
@@ -111,25 +158,23 @@ export default function DiscoverScreen() {
               <ThemedText type="label" style={{ color: theme.action }}>Post a plan</ThemedText>
             </Pressable>
           </View>
-        ) : (
-          <View style={[styles.stack, { width: CARD_W, height: CARD_H + 20 }]}>
-            {visible.slice(0, 3).reverse().map((activity, reversedIdx) => {
-              const stackLen = Math.min(visible.length, 3);
-              const idx      = stackLen - 1 - reversedIdx;
-              return (
-                <SwipeCard
-                  key={activity.id}
-                  activity={activity}
-                  isTop={idx === 0}
-                  index={idx}
-                  onSwipeLeft={handleSwipeLeft}
-                  onSwipeRight={handleSwipeRight}
-                />
-              );
-            })}
+        )}
+
+        {/* Opaque spinner overlay — sits on top of cards until image is ready */}
+        {loading && (
+          <View style={[styles.loadingOverlay, { backgroundColor: theme.bg }]}>
+            <ActivityIndicator color={theme.accent} size="large" />
           </View>
         )}
       </View>
+
+      <FilterSheet
+        visible={sheetOpen}
+        filters={filters}
+        onChange={handleFiltersChange}
+        onClose={handleSheetClose}
+        onBeforeLocationPicker={handleBeforeLocationPicker}
+      />
     </SafeAreaView>
   );
 }
@@ -146,22 +191,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
 
-  locationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: Spacing.two + 4,
-    paddingVertical: Spacing.one + 2,
-    maxWidth: 200,
-  },
-
   stackContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stack: { position: 'relative' },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   empty: {
     alignItems: 'center',

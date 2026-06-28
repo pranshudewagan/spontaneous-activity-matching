@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -42,6 +42,7 @@ type Props = {
   index: number;
   onSwipeLeft: (id: string) => void;
   onSwipeRight: (id: string) => void;
+  onImageReady?: () => void;
 };
 
 function formatTime(iso: string, flexible: boolean): string {
@@ -62,13 +63,19 @@ function formatDistance(meters: number): string {
   return miles < 1 ? 'Nearby' : `~${miles.toFixed(1)} mi away`;
 }
 
-export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }: Props) {
+export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, onImageReady }: Props) {
   const theme       = Colors.light;
   const accentColor = tagColor(activity.tags[0] ?? '');
 
   const [isTruncated,  setIsTruncated]  = useState(false);
   const [expanded,     setExpanded]     = useState(false);
   const [tagsPanelH,   setTagsPanelH]   = useState(0);
+
+  // No-image cards have nothing to wait for — signal ready immediately on mount
+  useEffect(() => {
+    if (!activity.image_url) onImageReady?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -124,8 +131,11 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight }:
         {activity.image_url ? (
           <Image
             source={{ uri: activity.image_url }}
-            style={styles.image}
+            style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : '#E8E0D8' }]}
             contentFit="cover"
+            transition={250}
+            onLoad={() => onImageReady?.()}
+            onError={() => onImageReady?.()}
           />
         ) : (
           <View style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : '#E8E0D8' }]} />
