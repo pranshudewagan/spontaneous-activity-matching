@@ -258,16 +258,16 @@ const styles = StyleSheet.create({
   },
   overlayLeft: {
     left: 20,
-    borderColor: '#D13E2A',
+    borderColor: '#F4845F',
     transform: [{ rotate: '-15deg' }],
   },
   overlayRight: {
     right: 20,
-    borderColor: '#F4845F',
+    borderColor: '#2AAFA8',
     transform: [{ rotate: '15deg' }],
   },
-  overlayTextPass: { fontSize: 22, fontWeight: '800', color: '#D13E2A' },
-  overlayTextYes:  { fontSize: 22, fontWeight: '800', color: '#F4845F' },
+  overlayTextPass: { fontSize: 22, fontWeight: '800', color: '#F4845F' },
+  overlayTextYes:  { fontSize: 22, fontWeight: '800', color: '#2AAFA8' },
 
   // Fixed bottom — show more/less + tags + spots, never participates in layout animation
   fixedPanel: {
