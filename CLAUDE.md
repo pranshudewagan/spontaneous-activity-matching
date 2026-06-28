@@ -138,8 +138,8 @@ These govern nearly every feature. Treat them as authoritative; if a request con
 0. **Foundation** — Expo + Supabase + email/phone OTP auth (+ configure auth rate limits) + empty profile screen.
 1. **Data model & security** — schema, RLS, location lockdown, generated types.
 2. **Host an activity** — create form (+ fixed-list tag picker) → DB.
-3. **Discovery stack** — radius feed, swipe UI, manual filters, exclude past/own. ← current
-4. **Joining & matching** — join requests, three accept modes, capacity + waitlist, reversal.
+3. **Discovery stack** — radius feed, swipe UI, manual filters, exclude past/own.
+4. **Joining & matching** — join requests, three accept modes, capacity + waitlist, reversal. ← current
 5. **Matched experience** — event-info (no address), group chat (in-app, Realtime).
 6. **Profile & lifecycle** — public profile + interests, private activities-done, host edit/cancel, expiry.
 7. **Safety & store-readiness** — block/report, age gate, in-app account deletion, abuse rate limits, policies, permission strings, submit.
