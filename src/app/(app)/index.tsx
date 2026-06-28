@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyDiscover } from '@/components/empty-discover';
@@ -26,9 +26,22 @@ export default function DiscoverScreen() {
   const [feedKey,         setFeedKey]         = useState(0);
   const [appliedFilters,  setAppliedFilters]  = useState<Filters>(DEFAULT_FILTERS);
   const [headerH,        setHeaderH]        = useState(0);
+  const [toast,          setToast]          = useState(false);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { height: windowH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+
+  const showToast = useCallback(() => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(true);
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(2200),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setToast(false));
+  }, [toastOpacity]);
 
   // Refs so callbacks can read current values without stale closures
   const passedIdsRef        = useRef<Set<string>>(new Set());
@@ -131,8 +144,11 @@ export default function DiscoverScreen() {
       return next;
     });
     supabase.rpc('request_to_join', { p_activity_id: id })
-      .then(({ error }) => { if (error) console.error('request_to_join failed:', error); });
-  }, []);
+      .then(({ data, error }) => {
+        if (error) { console.error('request_to_join failed:', error); return; }
+        if (data === 'accepted') showToast();
+      });
+  }, [showToast]);
 
   function handleFiltersChange(next: Filters) {
     setFilters(next);
@@ -219,6 +235,12 @@ export default function DiscoverScreen() {
         )}
       </View>
 
+      {toast && (
+        <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
+          <ThemedText type="label" style={styles.toastText}>Joined! Check My Plans.</ThemedText>
+        </Animated.View>
+      )}
+
       <FilterSheet
         visible={sheetOpen}
         filters={filters}
@@ -265,5 +287,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  toast: {
+    position: 'absolute',
+    bottom: BottomTabInset + 48,
+    alignSelf: 'center',
+    backgroundColor: '#2AAFA8',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  toastText: { color: '#FFFFFF', fontSize: 14 },
 
 });
