@@ -182,7 +182,7 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, o
           </View>
         </View>
 
-        {/* Title + time + description — expands upward, divider line at bottom */}
+        {/* Title + time + description — expands upward */}
         <Animated.View
           style={[styles.infoPanel, { bottom: tagsPanelH }]}
           layout={LinearTransition.duration(200)}

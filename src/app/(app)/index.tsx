@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,17 +16,19 @@ import { supabase } from '@/lib/supabase';
 export default function DiscoverScreen() {
   const theme = Colors.light;
 
-  const [activities,   setActivities]   = useState<SwipeCardData[]>([]);
-  const [passedIds,    setPassedIds]    = useState<Set<string>>(new Set());
-  const [currentLoc,   setCurrentLoc]   = useState<PickedLocation | null>(null);
+  const [activities,        setActivities]        = useState<SwipeCardData[]>([]);
+  const [passedIds,         setPassedIds]         = useState<Set<string>>(new Set());
+  const [leftSwipeHistory,  setLeftSwipeHistory]  = useState<string[]>([]);
+  const [currentLoc,        setCurrentLoc]        = useState<PickedLocation | null>(null);
   const [filters,      setFilters]      = useState<Filters>(DEFAULT_FILTERS);
   const [loading,         setLoading]         = useState(true);
   const [sheetOpen,       setSheetOpen]       = useState(false);
   const [feedKey,         setFeedKey]         = useState(0);
   const [appliedFilters,  setAppliedFilters]  = useState<Filters>(DEFAULT_FILTERS);
 
-  // Ref so loadFeed can read current passedIds without being in its deps
-  const passedIdsRef = useRef<Set<string>>(new Set());
+  // Refs so callbacks can read current values without stale closures
+  const passedIdsRef        = useRef<Set<string>>(new Set());
+  const leftSwipeHistoryRef = useRef<string[]>([]);
 
   const loadFeed = useCallback(async (loc: PickedLocation, f: Filters) => {
     setLoading(true);
@@ -43,6 +45,8 @@ export default function DiscoverScreen() {
       results = results.filter(a => f.tags.some(t => a.tags.includes(t)));
     }
     setActivities(results);
+    leftSwipeHistoryRef.current = [];
+    setLeftSwipeHistory([]);
     setAppliedFilters(f); // record what was actually loaded
     // Stop spinner immediately if nothing is visible after filtering out already-passed cards
     const hasVisible = results.some(a => !passedIdsRef.current.has(a.id));
@@ -86,9 +90,27 @@ export default function DiscoverScreen() {
     }
   }, [initLocation, loadFeed, filters]));
 
-  const handleSwipeLeft  = useCallback((id: string) => {
+  const handleSwipeLeft = useCallback((id: string) => {
     setPassedIds(prev => {
       const next = new Set(prev).add(id);
+      passedIdsRef.current = next;
+      return next;
+    });
+    const nextHistory = [...leftSwipeHistoryRef.current, id];
+    leftSwipeHistoryRef.current = nextHistory;
+    setLeftSwipeHistory(nextHistory);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    const history = leftSwipeHistoryRef.current;
+    if (history.length === 0) return;
+    const id = history[history.length - 1];
+    const nextHistory = history.slice(0, -1);
+    leftSwipeHistoryRef.current = nextHistory;
+    setLeftSwipeHistory(nextHistory);
+    setPassedIds(curr => {
+      const next = new Set(curr);
+      next.delete(id);
       passedIdsRef.current = next;
       return next;
     });
@@ -127,15 +149,25 @@ export default function DiscoverScreen() {
   }
 
   const visible = activities.filter(a => !passedIds.has(a.id));
+  const canUndo = leftSwipeHistory.length > 0;
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.line }]}>
         <ThemedText type="title">Discover</ThemedText>
-        <Pressable onPress={() => setSheetOpen(true)} hitSlop={8}>
-          <Ionicons name="options-outline" size={24} color={theme.ink} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={handleUndo} hitSlop={8} disabled={!canUndo}>
+            <Feather
+              name="rotate-ccw"
+              size={22}
+              color={canUndo ? theme.ink : theme.muted}
+            />
+          </Pressable>
+          <Pressable onPress={() => setSheetOpen(true)} hitSlop={8}>
+            <Ionicons name="options-outline" size={24} color={theme.ink} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Stack */}
@@ -197,6 +229,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
 
   stackContainer: {

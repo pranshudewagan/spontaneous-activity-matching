@@ -3,14 +3,15 @@
 Build one phase at a time, in order. Within a phase, do the lettered steps in order too — each ends in a check you can actually run. Don't start a phase until the previous one's checks pass. `CLAUDE.md` holds the one-line summary of each phase; this file is the working checklist.
 
 Legend: each step is `letter. what to build → ✓ how to verify`.
-
+        tracking our progress is marked by `← current`. 
+        a subphase we've skipped and will go back to is marked by `⚠️`
 ---
 
 ## Phase 0 — Foundation
 a. Scaffold the Expo app (TypeScript) and run it on a real device or simulator. → ✓ app boots to a blank screen on your phone.
 b. Create the Supabase project; add the client in `src/lib/supabase.ts` with env keys. → ✓ a trivial query (e.g. `select now()`) succeeds from the app.
 c. Email OTP sign-up/login screen. → ✓ you receive a code by email and reach a logged-in state.
-d. Phone OTP via Twilio. → ✓ you receive a 6-digit code by SMS and log in. Deferred — reverted to email OTP for now; phone code exists in git history. Unblocked by: upgrade Twilio past trial + wire Supabase phone provider.
+d. Phone OTP via Twilio. → ✓ you receive a 6-digit code by SMS and log in. ⚠️ Deferred — reverted to email OTP for now; phone code exists in git history. Unblocked by: upgrade Twilio past trial + wire Supabase phone provider.
 e. Configure Supabase Auth rate limits on OTP sends/verifications (esp. phone, for SMS cost/fraud). → ✓ rapid repeated OTP requests get throttled. Set SMS OTPs/hour to 3 in Supabase → Authentication → Rate Limits once Twilio is wired.
 f. Empty profile screen gated behind auth. → ✓ logged-out users are bounced to login; logged-in users see it.
 
