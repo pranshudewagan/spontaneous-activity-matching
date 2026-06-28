@@ -40,6 +40,7 @@ type Props = {
   activity: SwipeCardData;
   isTop: boolean;
   index: number;
+  cardHeight?: number;
   onSwipeLeft: (id: string) => void;
   onSwipeRight: (id: string) => void;
   onImageReady?: () => void;
@@ -63,7 +64,7 @@ function formatDistance(meters: number): string {
   return miles < 1 ? 'Nearby' : `~${miles.toFixed(1)} mi away`;
 }
 
-export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, onImageReady }: Props) {
+export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onSwipeRight, onImageReady }: Props) {
   const theme       = Colors.light;
   const accentColor = tagColor(activity.tags[0] ?? '');
 
@@ -125,7 +126,7 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, o
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.card, cardStyle]}>
+      <Animated.View style={[styles.card, { height: cardHeight ?? CARD_H }, cardStyle]}>
 
         {/* Image / placeholder fills full card */}
         {activity.image_url ? (
@@ -156,12 +157,12 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, o
 
         {/* Fixed bottom — show more/less + divider + tags + spots, never animated */}
         <View
-          style={styles.fixedPanel}
+          style={[styles.fixedPanel, { backgroundColor: theme.bg }]}
           onLayout={e => setTagsPanelH(e.nativeEvent.layout.height)}
         >
           {isTruncated && (
             <Pressable onPress={() => setExpanded(p => !p)} style={styles.showMoreRow}>
-              <ThemedText style={styles.showMore}>
+              <ThemedText style={[styles.showMore, { color: theme.muted }]}>
                 {expanded ? 'Show less' : 'Show more'}
               </ThemedText>
             </Pressable>
@@ -170,7 +171,7 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, o
             <View style={styles.tags}>
               {activity.tags.slice(0, 3).map(slug => (
                 <View key={slug} style={[styles.chip, { backgroundColor: tagColor(slug) + '30', borderColor: tagColor(slug) + '60' }]}>
-                  <ThemedText type="caption" style={{ color: '#fff', fontWeight: '700' }}>
+                  <ThemedText type="caption" style={{ color: tagColor(slug), fontWeight: '700' }}>
                     {slug.replace('_', ' ')}
                   </ThemedText>
                 </View>
@@ -184,10 +185,10 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, o
 
         {/* Title + time + description — expands upward */}
         <Animated.View
-          style={[styles.infoPanel, { bottom: tagsPanelH }]}
+          style={[styles.infoPanel, { bottom: tagsPanelH, backgroundColor: theme.bg }]}
           layout={LinearTransition.duration(200)}
         >
-          <ThemedText type="title" style={styles.title} numberOfLines={1}>
+          <ThemedText type="title" style={[styles.title, { color: theme.ink }]} numberOfLines={1}>
             {activity.title}
           </ThemedText>
           <ThemedText type="label" style={[styles.time, { color: theme.action }]} numberOfLines={1}>
@@ -197,7 +198,7 @@ export function SwipeCard({ activity, isTop, index, onSwipeLeft, onSwipeRight, o
             <Pressable onPress={() => setExpanded(p => !p)} disabled={!isTruncated}>
               <ThemedText
                 type="caption"
-                style={styles.description}
+                style={[styles.description, { color: theme.ink }]}
                 numberOfLines={isTruncated && !expanded ? 3 : undefined}
                 onTextLayout={e => {
                   if (!isTruncated && e.nativeEvent.lines.length > 3) setIsTruncated(true);

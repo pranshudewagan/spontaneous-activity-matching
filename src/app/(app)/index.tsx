@@ -9,7 +9,7 @@ import { EmptyDiscover } from '@/components/empty-discover';
 import { FilterSheet, DEFAULT_FILTERS, type Filters } from '@/components/filter-sheet';
 import { SwipeCard, type SwipeCardData, CARD_H, CARD_W } from '@/components/swipe-card';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { takePickedLocation, type PickedLocation } from '@/lib/location-handoff';
 import { supabase } from '@/lib/supabase';
 
@@ -25,6 +25,7 @@ export default function DiscoverScreen() {
   const [sheetOpen,       setSheetOpen]       = useState(false);
   const [feedKey,         setFeedKey]         = useState(0);
   const [appliedFilters,  setAppliedFilters]  = useState<Filters>(DEFAULT_FILTERS);
+  const [containerH,     setContainerH]     = useState(0);
 
   // Refs so callbacks can read current values without stale closures
   const passedIdsRef        = useRef<Set<string>>(new Set());
@@ -154,6 +155,7 @@ export default function DiscoverScreen() {
 
   const visible = activities.filter(a => !passedIds.has(a.id));
   const canUndo = leftSwipeHistory.length > 0;
+  const cardH   = containerH > 0 ? containerH - BottomTabInset - 24 : CARD_H;
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
@@ -175,14 +177,14 @@ export default function DiscoverScreen() {
       </View>
 
       {/* Stack */}
-      <View style={styles.stackContainer}>
+      <View style={styles.stackContainer} onLayout={e => setContainerH(e.nativeEvent.layout.height)}>
         {/* Empty state always in the background once loaded — no pop-in after last swipe */}
         {!loading && <EmptyDiscover onWidenRadius={() => setSheetOpen(true)} />}
 
         {/* Card stack floats above the empty state as a centered absolute overlay */}
         {visible.length > 0 && (
-          <View style={styles.stackFloat}>
-            <View style={{ width: CARD_W, height: CARD_H + 20 }}>
+          <View style={[styles.stackFloat, { bottom: BottomTabInset / 2 }]}>
+            <View style={{ width: CARD_W, height: cardH + 20 }}>
               {visible.slice(0, 3).reverse().map((activity, reversedIdx) => {
                 const stackLen = Math.min(visible.length, 3);
                 const idx      = stackLen - 1 - reversedIdx;
@@ -192,6 +194,7 @@ export default function DiscoverScreen() {
                     activity={activity}
                     isTop={idx === 0}
                     index={idx}
+                    cardHeight={cardH}
                     onSwipeLeft={handleSwipeLeft}
                     onSwipeRight={handleSwipeRight}
                     onImageReady={idx === 0 ? () => setLoading(false) : undefined}

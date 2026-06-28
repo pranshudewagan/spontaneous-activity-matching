@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   },
 
   swatch: {
-    width: 76,
+    width: 101,
     height: 101,
     borderRadius: 10,
     alignItems: 'center',
