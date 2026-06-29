@@ -26,21 +26,21 @@ export default function DiscoverScreen() {
   const [feedKey,         setFeedKey]         = useState(0);
   const [appliedFilters,  setAppliedFilters]  = useState<Filters>(DEFAULT_FILTERS);
   const [headerH,        setHeaderH]        = useState(0);
-  const [toast,          setToast]          = useState(false);
+  const [toastMsg,       setToastMsg]       = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { height: windowH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const showToast = useCallback(() => {
+  const showToast = useCallback((message: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(true);
+    setToastMsg(message);
     Animated.sequence([
       Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       Animated.delay(2200),
       Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start(() => setToast(false));
+    ]).start(() => setToastMsg(null));
   }, [toastOpacity]);
 
   // Refs so callbacks can read current values without stale closures
@@ -146,7 +146,8 @@ export default function DiscoverScreen() {
     supabase.rpc('request_to_join', { p_activity_id: id })
       .then(({ data, error }) => {
         if (error) { console.error('request_to_join failed:', error); return; }
-        if (data === 'accepted') showToast();
+        if (data === 'accepted')  showToast('Joined! Check My Plans.');
+        if (data === 'waitlisted') showToast("Activity is full — you're on the waitlist.");
       });
   }, [showToast]);
 
@@ -235,9 +236,9 @@ export default function DiscoverScreen() {
         )}
       </View>
 
-      {toast && (
+      {toastMsg !== null && (
         <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
-          <ThemedText type="label" style={styles.toastText}>Joined! Check My Plans.</ThemedText>
+          <ThemedText type="label" style={styles.toastText}>{toastMsg}</ThemedText>
         </Animated.View>
       )}
 

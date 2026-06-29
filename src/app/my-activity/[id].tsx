@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -82,11 +82,16 @@ export default function ActivityRequestsScreen() {
 
   async function handleRespond(requestId: string, accept: boolean) {
     setActing(requestId);
-    const { error } = await supabase.rpc('host_respond_to_request', {
+    const { data, error } = await supabase.rpc('host_respond_to_request', {
       p_request_id: requestId,
       p_accept:     accept,
     });
     if (error) { console.error('host_respond_to_request failed:', error); setActing(null); return; }
+    if (data === 'full') {
+      Alert.alert('Activity is full', 'Remove an accepted participant before approving someone new.');
+      setActing(null);
+      return;
+    }
     setRequests(prev => prev.filter(r => r.id !== requestId));
     if (accept) setAcceptedCount(prev => prev + 1);
     setActing(null);

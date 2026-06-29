@@ -37,11 +37,11 @@ e. Confirm the privacy boundary on the wire. → ✓ inspect the network respons
 f. Undo last pass — a transient "Undo" button appears after a left-swipe and restores that card to the top of the stack. → ✓ tapping Undo brings the card back; it disappears after ~4 s or on the next swipe.
 
 ## Phase 4 — Joining & matching
-a. Right-swipe creates a `join_request` (status `interested`). → ✓ a row appears; a double-swipe/retry does not create a duplicate. ← current
+a. Right-swipe creates a `join_request` (status `interested`). → ✓ a row appears; a double-swipe/retry does not create a duplicate.
 b. `auto` mode. → ✓ right-swipe is accepted instantly, up to capacity.
 c. `manual` mode — host approve/reject queue. → ✓ requests sit pending; host accept and reject both work.
 d. `auto_criteria` mode. → ✓ requests that clear the criteria auto-accept; the rest go to the waitlist (not rejected), and the host can override-accept them.
-e. Capacity, waitlist & host override (remember `max` includes the host; every activity has a waitlist). → ✓ at capacity, further joins go to the waitlist; a freed seat auto-promotes the next *qualified* waitlister (not a criteria-fail); the host can override-accept anyone on the waitlist; waitlisted/pending users see only the public card — no chat or event-info; two simultaneous accepts can't exceed capacity.
+e. Capacity, waitlist & host override (remember `max` includes the host; every activity has a waitlist). → ✓ at capacity, further joins go to the waitlist; a freed seat auto-promotes the next *qualified* waitlister (not a criteria-fail); the host can override-accept anyone on the waitlist; waitlisted/pending users see only the public card — no chat or event-info; two simultaneous accepts can't exceed capacity. ← current
 f. Acceptance reversal. → ✓ host removes an accepted person → their seat frees, the waitlist promotes, the removed person loses chat/event access and can't re-request that activity.
 g. Participant leaving. → ✓ a participant can leave any time (incl. after start); leaving before start frees their seat and promotes the next qualified waitlister; they lose chat/event access; they can re-request only before start — leaving after start is final.
 
