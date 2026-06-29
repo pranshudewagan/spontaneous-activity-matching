@@ -1,3 +1,4 @@
+import Slider from '@react-native-community/slider';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -6,15 +7,18 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RangeSlider } from '@/components/range-slider';
 import { TagChip } from '@/components/tag-chip';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -23,6 +27,26 @@ import { supabase } from '@/lib/supabase';
 import { TAGS } from '@/lib/tags';
 
 type AcceptMode = 'auto' | 'auto_criteria' | 'manual';
+
+type Criteria = {
+  has_photo: boolean;
+  min_age:   number;
+  max_age:   number;
+  genders:   string[];
+  within_mi: number | null;
+};
+
+const DEFAULT_CRITERIA: Criteria = {
+  has_photo: false,
+  min_age:   18,
+  max_age:   99,
+  genders:   [],
+  within_mi: null,
+};
+
+function isCriteriaEmpty(c: Criteria): boolean {
+  return !c.has_photo && c.min_age === 18 && c.max_age === 99 && c.genders.length === 0 && c.within_mi === null;
+}
 
 type FormSnapshot = {
   title: string;
@@ -34,12 +58,19 @@ type FormSnapshot = {
   tags: string[];
   imageUri: string | null;
   removeExistingImage: boolean;
+  criteria: Criteria;
 };
 
 const MODES: { value: AcceptMode; label: string }[] = [
   { value: 'auto',          label: 'Everyone'    },
   { value: 'auto_criteria', label: 'Screen'      },
   { value: 'manual',        label: "I'll decide" },
+];
+
+const GENDERS: { value: string; label: string; color: string }[] = [
+  { value: 'man',        label: 'Men',        color: '#6CA0DC' },
+  { value: 'woman',      label: 'Women',      color: '#F8B9D4' },
+  { value: 'non_binary', label: 'Non-binary', color: '#B2ACD8' },
 ];
 
 function defaultStartTime(): Date {
@@ -80,7 +111,9 @@ export default function HostScreen() {
   const [imageUri,            setImageUri]            = useState<string | null>(null);
   const [existingImageUrl,    setExistingImageUrl]    = useState<string | null>(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
-  const [submitState,         setSubmitState]         = useState<'idle' | 'submitting' | 'posted' | 'updated'>('idle');
+  const [submitState,           setSubmitState]           = useState<'idle' | 'submitting' | 'posted' | 'updated'>('idle');
+  const [criteria,              setCriteria]              = useState<Criteria>(DEFAULT_CRITERIA);
+  const [showDistanceCriterion, setShowDistanceCriterion] = useState(false);
 
   const savedSnapshot = useRef<FormSnapshot | null>(null);
 
@@ -89,7 +122,7 @@ export default function HostScreen() {
     (async () => {
       const { data, error } = await supabase
         .from('activities')
-        .select('title, description, start_time, time_flexible, max_participants, mode, tags, image_url')
+        .select('title, description, start_time, time_flexible, max_participants, mode, tags, image_url, criteria')
         .eq('id', routeId)
         .single();
       if (error || !data) { setLoadingActivity(false); return; }
@@ -103,6 +136,9 @@ export default function HostScreen() {
       setMode(data.mode as AcceptMode);
       setSelectedTags(data.tags ?? []);
       setExistingImageUrl(data.image_url ?? null);
+      const loadedCriteria = (data.criteria as Criteria | null) ?? DEFAULT_CRITERIA;
+      setCriteria(loadedCriteria);
+      setShowDistanceCriterion(loadedCriteria.within_mi !== null);
 
       savedSnapshot.current = {
         title:               data.title,
@@ -114,6 +150,7 @@ export default function HostScreen() {
         tags:                data.tags ?? [],
         imageUri:            null,
         removeExistingImage: false,
+        criteria:            loadedCriteria,
       };
       setLoadingActivity(false);
     })();
@@ -177,7 +214,8 @@ export default function HostScreen() {
     mode               !== snap.mode ||
     JSON.stringify(selectedTags) !== JSON.stringify(snap.tags) ||
     imageUri           !== snap.imageUri ||
-    removeExistingImage!== snap.removeExistingImage
+    removeExistingImage!== snap.removeExistingImage ||
+    JSON.stringify(criteria) !== JSON.stringify(snap.criteria)
   );
 
   const baseFormValid = title.trim().length > 0 && startTime > new Date();
@@ -187,8 +225,7 @@ export default function HostScreen() {
 
   const showConfirmation = (submitState === 'posted' || submitState === 'updated') && !isDirty;
 
-  const handleSubmit = async () => {
-    if (!canAct) return;
+  const doSubmit = async (finalCriteria: Criteria) => {
     setSubmitState('submitting');
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -211,6 +248,8 @@ export default function HostScreen() {
         image_url = null;
       }
 
+      const criteriaPayload = mode === 'auto_criteria' ? finalCriteria : null;
+
       if (activityId) {
         const patch: Record<string, unknown> = {
           title:            title.trim(),
@@ -220,6 +259,7 @@ export default function HostScreen() {
           max_participants: maxParticipants,
           mode,
           tags:             selectedTags,
+          criteria:         criteriaPayload,
         };
         if (image_url !== undefined) patch.image_url = image_url;
         if (location) patch.location = `POINT(${location.longitude} ${location.latitude})`;
@@ -241,6 +281,7 @@ export default function HostScreen() {
           tags:                [...selectedTags],
           imageUri:            null,
           removeExistingImage: false,
+          criteria:            finalCriteria,
         };
         setSubmitState('updated');
       } else {
@@ -255,6 +296,7 @@ export default function HostScreen() {
           tags:             selectedTags,
           location:         `POINT(${location!.longitude} ${location!.latitude})`,
           image_url:        image_url ?? null,
+          criteria:         criteriaPayload,
         }).select('id').single();
         if (error || !newRow) { console.error(error); setSubmitState('idle'); return; }
 
@@ -271,6 +313,7 @@ export default function HostScreen() {
           tags:                [...selectedTags],
           imageUri:            null,
           removeExistingImage: false,
+          criteria:            finalCriteria,
         };
         setSubmitState('posted');
       }
@@ -278,6 +321,30 @@ export default function HostScreen() {
       console.error(e);
       setSubmitState('idle');
     }
+  };
+
+  const handleSubmit = () => {
+    if (!canAct) return;
+
+    // Auto-deselect genders if all 3 selected (= no filter)
+    const finalCriteria: Criteria = {
+      ...criteria,
+      genders: criteria.genders.length === 3 ? [] : criteria.genders,
+    };
+
+    if (mode === 'auto_criteria' && isCriteriaEmpty(finalCriteria)) {
+      Alert.alert(
+        'No screening criteria set',
+        'With no criteria, "Screen" works the same as "Everyone". Set at least one criterion or switch to "Everyone".',
+        [
+          { text: 'Keep editing', style: 'cancel' },
+          { text: 'Post anyway', onPress: () => doSubmit(finalCriteria) },
+        ],
+      );
+      return;
+    }
+
+    doSubmit(finalCriteria);
   };
 
   const displayImageUri = imageUri ?? (!removeExistingImage ? existingImageUrl : null);
@@ -501,6 +568,119 @@ export default function HostScreen() {
           </View>
         </View>
 
+        {/* Screening criteria — only when Screen mode is selected */}
+        {mode === 'auto_criteria' && (
+          <View style={[styles.criteriaCard, { backgroundColor: theme.backgroundElement, borderColor: theme.line }]}>
+            <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
+              Screening criteria
+            </ThemedText>
+
+            {/* Has photo */}
+            <View style={styles.criteriaRow}>
+              <ThemedText type="body" style={{ color: theme.ink }}>Profile photo required</ThemedText>
+              <Switch
+                value={criteria.has_photo}
+                onValueChange={v => setCriteria(c => ({ ...c, has_photo: v }))}
+                trackColor={{ false: theme.line, true: theme.accent }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            {/* Age range */}
+            <View style={styles.criteriaSub}>
+              <View style={styles.criteriaRowSpread}>
+                <ThemedText type="label" style={{ color: theme.ink }}>Age range</ThemedText>
+                <ThemedText type="label" style={{ color: theme.accent }}>
+                  {criteria.min_age} – {criteria.max_age}
+                </ThemedText>
+              </View>
+              <RangeSlider
+                min={18}
+                max={99}
+                low={criteria.min_age}
+                high={criteria.max_age}
+                onChange={(lo, hi) => setCriteria(c => ({ ...c, min_age: lo, max_age: hi }))}
+                fillColor={theme.accent}
+                trackColor={theme.line}
+              />
+              <View style={styles.sliderLabels}>
+                <ThemedText type="caption" style={{ color: theme.muted }}>18</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.muted }}>99</ThemedText>
+              </View>
+            </View>
+
+            {/* Gender */}
+            <View style={styles.criteriaSub}>
+              <ThemedText type="label" style={{ color: theme.ink }}>Gender</ThemedText>
+              <View style={styles.genderRow}>
+                {GENDERS.map(g => {
+                  const selected = criteria.genders.includes(g.value);
+                  return (
+                    <Pressable
+                      key={g.value}
+                      style={[
+                        styles.genderChip,
+                        {
+                          borderColor:     selected ? g.color : theme.line,
+                          backgroundColor: selected ? g.color + '33' : 'transparent',
+                        },
+                      ]}
+                      onPress={() => setCriteria(c => ({
+                        ...c,
+                        genders: selected
+                          ? c.genders.filter(x => x !== g.value)
+                          : [...c.genders, g.value],
+                      }))}>
+                      <ThemedText style={[styles.genderChipText, { color: selected ? g.color : theme.muted }]}>
+                        {g.label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Within X mi */}
+            <View style={styles.criteriaSub}>
+              <View style={styles.criteriaRow}>
+                <ThemedText type="label" style={{ color: theme.ink }}>Within a distance</ThemedText>
+                <Switch
+                  value={showDistanceCriterion}
+                  onValueChange={v => {
+                    setShowDistanceCriterion(v);
+                    setCriteria(c => ({ ...c, within_mi: v ? (c.within_mi ?? 25) : null }));
+                  }}
+                  trackColor={{ false: theme.line, true: theme.accent }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              {showDistanceCriterion && (
+                <>
+                  <View style={[styles.criteriaRowSpread, { marginTop: Spacing.one }]}>
+                    <ThemedText type="caption" style={{ color: theme.muted }}>From activity location</ThemedText>
+                    <ThemedText type="label" style={{ color: theme.accent }}>{criteria.within_mi} mi</ThemedText>
+                  </View>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={1}
+                    maximumValue={100}
+                    step={1}
+                    value={criteria.within_mi ?? 25}
+                    onValueChange={v => setCriteria(c => ({ ...c, within_mi: v }))}
+                    minimumTrackTintColor={theme.accent}
+                    maximumTrackTintColor={theme.line}
+                    thumbTintColor={theme.accent}
+                  />
+                  <View style={styles.sliderLabels}>
+                    <ThemedText type="caption" style={{ color: theme.muted }}>1 mi</ThemedText>
+                    <ThemedText type="caption" style={{ color: theme.muted }}>100 mi</ThemedText>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Photo */}
         <View style={styles.field}>
           <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
@@ -665,4 +845,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+
+  criteriaCard: {
+    borderWidth:  1,
+    borderRadius: 12,
+    padding:      Spacing.three,
+    gap:          Spacing.three,
+    marginBottom: Spacing.three,
+  },
+  criteriaRow: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+  },
+  criteriaRowSpread: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    marginBottom:   Spacing.one,
+  },
+  criteriaSub: {
+    gap: Spacing.one + 2,
+  },
+  sliderLabels: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    marginTop:      2,
+  },
+  slider: { width: '100%', height: 40 },
+  genderRow: {
+    flexDirection: 'row',
+    gap:            8,
+    marginTop:      Spacing.one,
+  },
+  genderChip: {
+    flex:              1,
+    paddingVertical:   8,
+    borderRadius:      20,
+    borderWidth:       1,
+    alignItems:        'center',
+  },
+  genderChipText: {
+    fontSize:   13,
+    fontWeight: '700',
+  },
 });
