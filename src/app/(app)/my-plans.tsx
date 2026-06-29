@@ -187,7 +187,7 @@ export default function MyPlansScreen() {
                   )}>
                   <View style={{ backgroundColor: theme.bg }}>
                     {!isPast ? (
-                      <TouchableOpacity activeOpacity={0.7} onPress={() => router.push({ pathname: '/host', params: { id: item.id } })}>
+                      <TouchableOpacity activeOpacity={0.7} onPress={() => router.push(`/my-activity/${item.id}`)}>
                         <ActivityCard activity={item} />
                       </TouchableOpacity>
                     ) : (
