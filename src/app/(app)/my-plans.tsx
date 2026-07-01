@@ -189,6 +189,14 @@ export default function MyPlansScreen() {
                     {!isPast ? (
                       <TouchableOpacity activeOpacity={0.7} onPress={() => router.push(`/my-activity/${item.id}`)}>
                         <ActivityCard activity={item} />
+                        {(item.request_count ?? 0) > 0 && (
+                          <View style={[styles.requestBadge, { backgroundColor: theme.warning + '18', borderColor: theme.warning + '50' }]}>
+                            <View style={[styles.requestDot, { backgroundColor: theme.warning }]} />
+                            <ThemedText type="caption" style={{ color: theme.warning, fontWeight: '600' }}>
+                              {item.request_count} {item.request_count === 1 ? 'request' : 'requests'}
+                            </ThemedText>
+                          </View>
+                        )}
                       </TouchableOpacity>
                     ) : (
                       <ActivityCard activity={item} muted />
@@ -297,6 +305,24 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.two,
   },
   statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  requestBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: -Spacing.two,
+    marginBottom: Spacing.two,
+    marginLeft: Spacing.two,
+  },
+  requestDot: {
     width: 6,
     height: 6,
     borderRadius: 3,

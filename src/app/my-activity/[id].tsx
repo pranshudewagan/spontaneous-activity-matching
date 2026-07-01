@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -24,6 +25,13 @@ type JoinRequest = {
   user_id: string;
   email: string;
   status: 'interested' | 'waitlisted';
+  created_at: string;
+};
+
+type AcceptedParticipant = {
+  id: string;
+  user_id: string;
+  email: string;
   created_at: string;
 };
 
@@ -53,21 +61,24 @@ export default function ActivityRequestsScreen() {
 
   const [activity,      setActivity]      = useState<ActivitySummary | null>(null);
   const [requests,      setRequests]      = useState<JoinRequest[]>([]);
+  const [accepted,      setAccepted]      = useState<AcceptedParticipant[]>([]);
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [loading,       setLoading]       = useState(true);
   const [acting,        setActing]        = useState<string | null>(null);
+  const [removing,      setRemoving]      = useState<string | null>(null);
 
   useEffect(() => { if (id) loadData(); }, [id]);
 
   async function loadData() {
     setLoading(true);
-    const [activityRes, requestsRes, countRes] = await Promise.all([
+    const [activityRes, requestsRes, acceptedRes, countRes] = await Promise.all([
       supabase
         .from('activities')
         .select('id, title, start_time, time_flexible, mode, max_participants')
         .eq('id', id)
         .single(),
       supabase.rpc('get_join_requests_for_activity', { p_activity_id: id }),
+      supabase.rpc('get_accepted_participants_for_activity', { p_activity_id: id }),
       supabase
         .from('join_requests')
         .select('id', { count: 'exact', head: true })
@@ -76,6 +87,7 @@ export default function ActivityRequestsScreen() {
     ]);
     if (activityRes.data)  setActivity(activityRes.data as ActivitySummary);
     if (requestsRes.data)  setRequests(requestsRes.data as JoinRequest[]);
+    if (acceptedRes.data)  setAccepted(acceptedRes.data as AcceptedParticipant[]);
     if (countRes.count != null) setAcceptedCount(countRes.count);
     setLoading(false);
   }
@@ -92,9 +104,44 @@ export default function ActivityRequestsScreen() {
       setActing(null);
       return;
     }
+    if (data === 'accepted') setAcceptedCount(prev => prev + 1);
     setRequests(prev => prev.filter(r => r.id !== requestId));
-    if (accept) setAcceptedCount(prev => prev + 1);
     setActing(null);
+    // Reload accepted list in case a waitlister was promoted during this approve
+    const { data: fresh } = await supabase.rpc('get_accepted_participants_for_activity', { p_activity_id: id });
+    if (fresh) setAccepted(fresh as AcceptedParticipant[]);
+  }
+
+  function confirmRemove(participant: AcceptedParticipant) {
+    Alert.alert(
+      'Remove participant?',
+      `${participant.email} will be removed from the activity.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => handleRemove(participant.id) },
+      ],
+    );
+  }
+
+  async function handleRemove(requestId: string) {
+    setRemoving(requestId);
+    const { data, error } = await supabase.rpc('host_remove_participant', { p_request_id: requestId });
+    if (error) { console.error('host_remove_participant failed:', error); setRemoving(null); return; }
+    if (data === 'removed') {
+      setAccepted(prev => prev.filter(p => p.id !== requestId));
+      setAcceptedCount(prev => prev - 1);
+      // Reload both lists: requests loses the promoted waitlister, accepted gains them
+      const [freshRequests, freshAccepted] = await Promise.all([
+        supabase.rpc('get_join_requests_for_activity', { p_activity_id: id }),
+        supabase.rpc('get_accepted_participants_for_activity', { p_activity_id: id }),
+      ]);
+      if (freshRequests.data) setRequests(freshRequests.data as JoinRequest[]);
+      if (freshAccepted.data) {
+        setAccepted(freshAccepted.data as AcceptedParticipant[]);
+        setAcceptedCount(freshAccepted.data.length);
+      }
+    }
+    setRemoving(null);
   }
 
   const pending    = requests.filter(r => r.status === 'interested');
@@ -151,7 +198,7 @@ export default function ActivityRequestsScreen() {
             </View>
           )}
 
-          {requests.length === 0 ? (
+          {accepted.length === 0 && requests.length === 0 ? (
             <View style={styles.emptyState}>
               <ThemedText type="title" style={[styles.emptyHeading, { color: theme.ink }]}>All clear</ThemedText>
               <ThemedText type="smallBold" style={[styles.emptySub, { color: theme.muted }]}>
@@ -160,6 +207,22 @@ export default function ActivityRequestsScreen() {
             </View>
           ) : (
             <>
+              {accepted.length > 0 && (
+                <View style={styles.section}>
+                  <ThemedText style={[styles.sectionLabel, { color: theme.muted }]}>
+                    ACCEPTED · {accepted.length}
+                  </ThemedText>
+                  {accepted.map(p => (
+                    <AcceptedRow
+                      key={p.id}
+                      participant={p}
+                      removing={removing === p.id}
+                      onRemove={confirmRemove}
+                    />
+                  ))}
+                </View>
+              )}
+
               {pending.length > 0 && (
                 <View style={styles.section}>
                   <ThemedText style={[styles.sectionLabel, { color: theme.muted }]}>
@@ -198,6 +261,47 @@ export default function ActivityRequestsScreen() {
         </ScrollView>
       )}
     </SafeAreaView>
+  );
+}
+
+type AcceptedRowProps = {
+  participant: AcceptedParticipant;
+  removing:    boolean;
+  onRemove:    (p: AcceptedParticipant) => void;
+};
+
+function AcceptedRow({ participant, removing, onRemove }: AcceptedRowProps) {
+  const theme      = Colors.light;
+  const swipeRef   = useRef<Swipeable>(null);
+
+  function renderRightActions() {
+    return (
+      <Pressable
+        style={[styles.removeAction, { backgroundColor: theme.danger }]}
+        onPress={() => {
+          swipeRef.current?.close();
+          onRemove(participant);
+        }}
+      >
+        <Feather name="user-x" size={16} color="#fff" />
+        <ThemedText style={styles.removeActionText}>Remove</ThemedText>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Swipeable ref={swipeRef} renderRightActions={renderRightActions} overshootRight={false}>
+      <View style={[styles.requestRow, { borderColor: theme.line, backgroundColor: theme.bg }]}>
+        <ThemedText type="label" style={[styles.requestEmail, { color: theme.ink, flex: 1 }]} numberOfLines={1}>
+          {participant.email}
+        </ThemedText>
+        {removing ? (
+          <ActivityIndicator size="small" color={theme.danger} />
+        ) : (
+          <Feather name="chevron-left" size={14} color={theme.muted} />
+        )}
+      </View>
+    </Swipeable>
   );
 }
 
@@ -353,6 +457,20 @@ const styles = StyleSheet.create({
   rejectBtn:  { borderWidth: 1 },
   approveBtn: {},
   actionBtnText: {
+    fontSize:   13,
+    fontWeight: '700',
+  },
+
+  removeAction: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:             6,
+    paddingHorizontal: 20,
+    marginVertical: StyleSheet.hairlineWidth,
+  },
+  removeActionText: {
+    color:      '#fff',
     fontSize:   13,
     fontWeight: '700',
   },

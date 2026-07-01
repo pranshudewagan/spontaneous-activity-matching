@@ -13,6 +13,7 @@ export type ActivityCardData = {
   time_flexible: boolean;
   max_participants: number;
   accepted_count: number;
+  request_count?: number;
   distance_m?: number;
   tags: string[];
   image_url?: string | null;
