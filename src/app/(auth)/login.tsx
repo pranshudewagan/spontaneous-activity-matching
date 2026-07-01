@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,24 +9,20 @@ import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
-  const router = useRouter();
   const theme = useTheme();
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [email,    setEmail]    = useState('');
+  const [password, setPassword] = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
 
-  async function sendCode() {
+  async function signIn() {
     const trimmed = email.trim();
-    if (!trimmed) return;
+    if (!trimmed || !password) return;
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({ email: trimmed });
+    const { error } = await supabase.auth.signInWithPassword({ email: trimmed, password });
     setLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push({ pathname: '/(auth)/verify', params: { email: trimmed } });
-    }
+    if (error) setError('Incorrect email or password.');
   }
 
   return (
@@ -38,9 +33,6 @@ export default function LoginScreen() {
           style={styles.inner}
         >
           <ThemedText type="display" style={styles.heading}>Sign in</ThemedText>
-          <ThemedText type="caption" themeColor="muted" style={styles.sub}>
-            We'll send a one-time code to your email.
-          </ThemedText>
 
           <TextInput
             style={[styles.input, {
@@ -58,8 +50,24 @@ export default function LoginScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
-            onSubmitEditing={sendCode}
-            returnKeyType="send"
+            returnKeyType="next"
+          />
+
+          <TextInput
+            style={[styles.input, {
+              backgroundColor: theme.surface,
+              borderColor: theme.line,
+              color: theme.ink,
+            }]}
+            placeholder="Password"
+            placeholderTextColor={theme.muted}
+            value={password}
+            onChangeText={setPassword}
+            autoComplete="password"
+            textContentType="password"
+            secureTextEntry
+            returnKeyType="go"
+            onSubmitEditing={signIn}
           />
 
           {error && (
@@ -73,12 +81,12 @@ export default function LoginScreen() {
               styles.button,
               { backgroundColor: theme.action, opacity: pressed ? 0.85 : 1 },
             ]}
-            onPress={sendCode}
+            onPress={signIn}
             disabled={loading}
           >
             {loading
               ? <ActivityIndicator color="#fff" />
-              : <ThemedText type="label" style={styles.buttonText}>Send code</ThemedText>
+              : <ThemedText type="label" style={styles.buttonText}>Sign in</ThemedText>
             }
           </Pressable>
         </KeyboardAvoidingView>
@@ -96,8 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.two,
   },
-  heading: { textAlign: 'center', marginBottom: Spacing.one },
-  sub:     { textAlign: 'center', marginBottom: Spacing.three },
+  heading: { textAlign: 'center', marginBottom: Spacing.three },
   input: {
     borderWidth: 1,
     borderRadius: 12,

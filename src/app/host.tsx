@@ -712,7 +712,7 @@ export default function HostScreen() {
         {/* Privacy note */}
         <View style={styles.privacyNote}>
           <ThemedText type="caption" style={{ color: theme.muted }}>
-            🔒 The exact meet spot is shared in the group chat after people join.
+            The exact meet spot is shared in the group chat after people join.
           </ThemedText>
         </View>
 
