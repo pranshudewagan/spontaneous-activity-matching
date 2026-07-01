@@ -35,6 +35,7 @@ export type SwipeCardData = {
   distance_m: number;
   tags: string[];
   image_url: string | null;
+  mode: 'auto' | 'auto_criteria' | 'manual';
 };
 
 type Props = {
@@ -63,6 +64,12 @@ function formatTime(iso: string, flexible: boolean): string {
 function formatDistance(meters: number): string {
   const miles = meters / 1609.34;
   return miles < 1 ? 'Nearby' : `${Math.round(miles)} mi away`;
+}
+
+function joinPolicyLabel(mode: SwipeCardData['mode']): string {
+  if (mode === 'auto')          return 'Open';
+  if (mode === 'auto_criteria') return 'Auto select';
+  return 'Approval';
 }
 
 export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onSwipeRight, onImageReady }: Props) {
@@ -176,9 +183,14 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
                 <TagChip key={slug} slug={slug} />
               ))}
             </View>
-            <ThemedText type="label" style={[styles.spotsText, { color: theme.accent }]}>
-              {spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} left` : 'Full'}
-            </ThemedText>
+            <View style={styles.spotsCol}>
+              <ThemedText type="label" style={[styles.spotsText, { color: theme.accent }]}>
+                {joinPolicyLabel(activity.mode)}
+              </ThemedText>
+              <ThemedText type="label" style={[styles.spotsText, { color: theme.accent }]}>
+                {spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} left` : 'Full'}
+              </ThemedText>
+            </View>
           </View>
         </View>
 
@@ -291,7 +303,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
-  spotsText: { fontWeight: '800', flexShrink: 0 },
+  spotsCol: { alignItems: 'flex-end', flexShrink: 0 },
+  spotsText: { fontWeight: '800' },
   // Expandable panel — title + time + description, sits above fixed panel
   infoPanel: {
     position: 'absolute',

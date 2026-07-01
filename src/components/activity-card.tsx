@@ -17,6 +17,7 @@ export type ActivityCardData = {
   distance_m?: number;
   tags: string[];
   image_url?: string | null;
+  mode?: 'auto' | 'auto_criteria' | 'manual';
 };
 
 type Props = {
@@ -43,6 +44,12 @@ function formatTime(iso: string, flexible: boolean): string {
 function formatDistance(meters: number): string {
   const miles = meters / 1609.34;
   return miles < 1 ? 'Nearby' : `${Math.round(miles)} mi away`;
+}
+
+function joinPolicyLabel(mode: 'auto' | 'auto_criteria' | 'manual'): string {
+  if (mode === 'auto')          return 'Open';
+  if (mode === 'auto_criteria') return 'Auto select';
+  return 'Approval';
 }
 
 export function ActivityCard({ activity, onPress, muted = false }: Props) {
@@ -85,7 +92,7 @@ export function ActivityCard({ activity, onPress, muted = false }: Props) {
           </ThemedText>
         )}
         <ThemedText type="caption" style={[styles.capacity, { color: theme.accent }]}>
-          {going} / {total} going
+          {going} / {total} going{activity.mode ? ` · ${joinPolicyLabel(activity.mode)}` : ''}
         </ThemedText>
       </View>
 
