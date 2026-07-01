@@ -61,8 +61,8 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
 
   if (!activity) return null;
 
-  const going    = activity.accepted_count + 1;
-  const total    = activity.max_participants;
+  const going = activity.accepted_count + 1;
+  const total = activity.max_participants;
 
   return (
     <Modal
@@ -72,15 +72,9 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
       onRequestClose={onClose}
     >
       <View style={[styles.container, { backgroundColor: theme.bg }]}>
-        {/* Handle bar — two lines */}
-        <View style={styles.handleBar}>
-          <View style={[styles.handle, { backgroundColor: theme.line }]} />
-          <View style={[styles.handle, { backgroundColor: theme.line }]} />
-        </View>
-
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.five }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.four }}
           showsVerticalScrollIndicator={false}
           bounces
         >
@@ -95,13 +89,13 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
             <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: theme.line }]} />
           )}
 
-          <View style={styles.content}>
-            {/* Title */}
+          {/* Content card — overlaps image bottom with rounded top corners */}
+          <View style={[styles.content, { backgroundColor: theme.bg }]}>
+
             <ThemedText style={[styles.title, { color: theme.ink }]}>
               {activity.title}
             </ThemedText>
 
-            {/* Time + flexible badge */}
             <View style={styles.timeRow}>
               <ThemedText style={[styles.time, { color: theme.action }]}>
                 {formatTime(activity.start_time)}
@@ -115,27 +109,24 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
               )}
             </View>
 
-            {/* Distance */}
             {activity.distance_m != null && (
               <View style={styles.distanceRow}>
                 <Ionicons name="location-outline" size={13} color={theme.muted} />
-                <ThemedText type="caption" style={[styles.distanceText, { color: theme.muted }]}>
+                <ThemedText style={[styles.metaText, { color: theme.muted }]}>
                   {formatDistance(activity.distance_m)}
                 </ThemedText>
               </View>
             )}
 
-            {/* Mode + going */}
             <View style={styles.modeRow}>
-              <ThemedText style={{ fontSize: 15, color: theme.accent, fontWeight: '700' }}>
+              <ThemedText style={[styles.metaText, { color: theme.accent, fontWeight: '700' }]}>
                 {joinPolicyLabel(activity.mode)}
               </ThemedText>
-              <ThemedText style={{ fontSize: 15, color: theme.muted }}>
+              <ThemedText style={[styles.metaText, { color: theme.muted }]}>
                 {' · '}{going} / {total} going
               </ThemedText>
             </View>
 
-            {/* Tags */}
             {activity.tags.length > 0 && (
               <View style={styles.tags}>
                 {activity.tags.map(slug => (
@@ -144,31 +135,29 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
               </View>
             )}
 
-            {/* Description */}
             {!!activity.description && (
               <ThemedText style={[styles.description, { color: theme.ink }]}>
                 {activity.description}
               </ThemedText>
             )}
 
-            {/* Meet spot note */}
             <View style={[styles.infoBox, { backgroundColor: theme.accent + '12', borderColor: theme.accent + '30' }]}>
               <Ionicons name="information-circle-outline" size={33} color={theme.accent} style={styles.infoIcon} />
               <ThemedText type="caption" style={{ color: theme.accent, lineHeight: 18, flex: 1, fontWeight: '700' }}>
                 Meet spot is coordinated in chat — you'll get access once you're in.
               </ThemedText>
             </View>
+
+            {/* Done button */}
+            <Pressable
+              style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+              onPress={onClose}
+            >
+              <ThemedText style={[styles.doneBtnText, { color: '#fff' }]}>Done</ThemedText>
+            </Pressable>
+
           </View>
         </ScrollView>
-
-        {/* Close button */}
-        <Pressable
-          style={[styles.closeBtn, { backgroundColor: theme.surface, borderColor: theme.line, top: insets.top + Spacing.two }]}
-          onPress={onClose}
-          hitSlop={12}
-        >
-          <ThemedText style={[styles.closeBtnText, { color: theme.muted }]}>✕</ThemedText>
-        </Pressable>
       </View>
     </Modal>
   );
@@ -177,18 +166,6 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-
-  handleBar: {
-    alignItems: 'center',
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.one,
-    gap: 3,
-  },
-  handle: {
-    width: 36,
-    height: 3,
-    borderRadius: 1.5,
   },
 
   scroll: {
@@ -204,9 +181,13 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
-    gap: Spacing.two + 4,
+    marginTop: -28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: Spacing.three * 1.5,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.three,
+    gap: Spacing.three,
   },
 
   title: {
@@ -237,7 +218,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  distanceText: {
+  metaText: {
     fontSize: 15,
     fontWeight: '500',
   },
@@ -262,9 +243,8 @@ const styles = StyleSheet.create({
   infoBox: {
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.three * 0.75,
     paddingVertical: Spacing.two + 2,
-    marginTop: Spacing.one,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.one + 2,
@@ -273,24 +253,14 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  closeBtn: {
-    position: 'absolute',
-    right: Spacing.three,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
+  doneBtn: {
+    borderRadius: 12,
+    paddingVertical: Spacing.two + 4,
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    marginTop: Spacing.two,
   },
-  closeBtnText: {
-    fontSize: 13,
+  doneBtnText: {
+    fontSize: 16,
     fontWeight: '600',
-    lineHeight: 14,
   },
 });
