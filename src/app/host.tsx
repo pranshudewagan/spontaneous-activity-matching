@@ -115,7 +115,23 @@ export default function HostScreen() {
   const [criteria,              setCriteria]              = useState<Criteria>(DEFAULT_CRITERIA);
   const [showDistanceCriterion, setShowDistanceCriterion] = useState(false);
 
-  const savedSnapshot = useRef<FormSnapshot | null>(null);
+  const savedSnapshot  = useRef<FormSnapshot | null>(null);
+  const holdTimeout    = useRef<ReturnType<typeof setTimeout>  | null>(null);
+  const holdInterval   = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startHold = (action: () => void) => {
+    action();
+    holdTimeout.current = setTimeout(() => {
+      holdInterval.current = setInterval(action, 100);
+    }, 400);
+  };
+
+  const stopHold = () => {
+    if (holdTimeout.current)  clearTimeout(holdTimeout.current);
+    if (holdInterval.current) clearInterval(holdInterval.current);
+    holdTimeout.current  = null;
+    holdInterval.current = null;
+  };
 
   useEffect(() => {
     if (!routeId) return;
@@ -498,12 +514,16 @@ export default function HostScreen() {
 
         {/* How many people */}
         <View style={styles.field}>
-          <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
-            How many people?
-          </ThemedText>
+          <View style={styles.fieldLabelRow}>
+            <ThemedText type="label" style={[styles.fieldLabel, { color: theme.ink }]}>
+              How many people?
+            </ThemedText>
+            <ThemedText type="caption" style={{ color: theme.muted }}>(2–25)</ThemedText>
+          </View>
           <View style={[styles.row, { borderColor: theme.line }]}>
             <Pressable
-              onPress={() => setMaxParticipants(p => Math.max(2, p - 1))}
+              onPressIn={() => startHold(() => setMaxParticipants(p => Math.max(2, p - 1)))}
+              onPressOut={stopHold}
               hitSlop={12}
               disabled={maxParticipants === 2}
               style={styles.stepBtn}>
@@ -511,7 +531,8 @@ export default function HostScreen() {
             </Pressable>
             <ThemedText type="title" style={styles.stepValue}>{maxParticipants}</ThemedText>
             <Pressable
-              onPress={() => setMaxParticipants(p => Math.min(25, p + 1))}
+              onPressIn={() => startHold(() => setMaxParticipants(p => Math.min(25, p + 1)))}
+              onPressOut={stopHold}
               hitSlop={12}
               disabled={maxParticipants === 25}
               style={styles.stepBtn}>
@@ -757,6 +778,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three },
 
   field:      { marginBottom: Spacing.three },
+  fieldLabelRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.one + 2 },
   fieldLabel: { marginBottom: Spacing.one + 2 },
 
   input: {
