@@ -1,6 +1,6 @@
 # Spontaneous Activity Matching
 
-A location-based mobile app where people post real-life activities they already plan to do — laser tag, hiking, a museum, a food spot — and find others to join them through swipe-based matching.
+A location-based mobile app where people post real-life activities they already plan to do (laser tag, hiking, a museum, a food spot, etc.) and find others to join them through swipe-based matching.
 
 The core idea is coordination around a specific plan someone already has, not scheduled events or communities. A stranger should be able to either post "I'm going to X at Y" and get the right people to join, or open the app and find a real activity nearby to join today.
 

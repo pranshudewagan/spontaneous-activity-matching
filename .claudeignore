@@ -1,0 +1,13 @@
+# Dependency folders
+node_modules/
+
+# Lockfiles (Massive token drains)
+package-lock.json
+
+# Media and Image Assets (Claude Code cannot see binary files)
+assets/images/
+assets/expo.icon/
+
+# Hidden System and Version Control Files
+.git/
+.DS_Store
