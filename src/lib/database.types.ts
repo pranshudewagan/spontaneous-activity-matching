@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -42,6 +37,7 @@ export type Database = {
       activities: {
         Row: {
           created_at: string
+          criteria: Json | null
           description: string | null
           host_id: string
           id: string
@@ -57,6 +53,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          criteria?: Json | null
           description?: string | null
           host_id: string
           id?: string
@@ -72,6 +69,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          criteria?: Json | null
           description?: string | null
           host_id?: string
           id?: string
@@ -99,6 +97,7 @@ export type Database = {
         Row: {
           activity_id: string
           created_at: string
+          criteria_fail: boolean
           id: string
           status: Database["public"]["Enums"]["join_status"]
           updated_at: string
@@ -107,6 +106,7 @@ export type Database = {
         Insert: {
           activity_id: string
           created_at?: string
+          criteria_fail?: boolean
           id?: string
           status?: Database["public"]["Enums"]["join_status"]
           updated_at?: string
@@ -115,6 +115,7 @@ export type Database = {
         Update: {
           activity_id?: string
           created_at?: string
+          criteria_fail?: boolean
           id?: string
           status?: Database["public"]["Enums"]["join_status"]
           updated_at?: string
@@ -579,7 +580,34 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_accepted_participants_for_activity: {
+        Args: { p_activity_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          user_id: string
+        }[]
+      }
+      get_join_requests_for_activity: {
+        Args: { p_activity_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          status: Database["public"]["Enums"]["join_status"]
+          user_id: string
+        }[]
+      }
       gettransactionid: { Args: never; Returns: unknown }
+      host_remove_participant: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
+      host_respond_to_request: {
+        Args: { p_accept: boolean; p_request_id: string }
+        Returns: string
+      }
       is_activity_host: {
         Args: { p_activity: string; p_user: string }
         Returns: boolean
@@ -600,6 +628,7 @@ export type Database = {
           image_url: string
           max_participants: number
           mode: Database["public"]["Enums"]["accept_mode"]
+          request_count: number
           start_time: string
           status: Database["public"]["Enums"]["activity_status"]
           tags: string[]
@@ -608,14 +637,17 @@ export type Database = {
         }[]
       }
       my_joined_activities: {
-        Args: never
+        Args: { p_lat?: number; p_lng?: number }
         Returns: {
           accepted_count: number
+          description: string
+          distance_m: number
           id: string
           image_url: string
           join_status: Database["public"]["Enums"]["join_status"]
           joined_at: string
           max_participants: number
+          mode: Database["public"]["Enums"]["accept_mode"]
           start_time: string
           tags: string[]
           time_flexible: boolean
@@ -640,6 +672,7 @@ export type Database = {
           title: string
         }[]
       }
+      participant_leave: { Args: { p_activity_id: string }; Returns: string }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
@@ -680,7 +713,11 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
-      request_to_join: { Args: { p_activity_id: string }; Returns: undefined }
+      promote_next_waitlister: {
+        Args: { p_activity_id: string }
+        Returns: string
+      }
+      request_to_join: { Args: { p_activity_id: string }; Returns: string }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -1437,3 +1474,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -15,6 +15,7 @@ import { Swipeable, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActivityCard, type ActivityCardData } from '@/components/activity-card';
+import { ActivityDetailModal, type ActivityDetail } from '@/components/activity-detail-modal';
 import { EmptyHosting, EmptyJoined } from '@/components/empty-my-plans';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -22,7 +23,7 @@ import { supabase } from '@/lib/supabase';
 
 type Tab = 'hosting' | 'joined';
 
-type JoinedActivity = ActivityCardData & {
+type JoinedActivity = ActivityCardData & ActivityDetail & {
   join_status: 'interested' | 'waitlisted' | 'accepted';
   joined_at: string;
 };
@@ -48,6 +49,7 @@ export default function MyPlansScreen() {
   const [joinedActivities, setJoinedActivities] = useState<JoinedActivity[]>([]);
   const [loading,          setLoading]          = useState(true);
   const [refreshing,       setRefreshing]       = useState(false);
+  const [detailActivity,   setDetailActivity]   = useState<ActivityDetail | null>(null);
   const joinedSwipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
   useEffect(() => {
@@ -112,9 +114,23 @@ export default function MyPlansScreen() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('my_joined_activities');
+      let lat: number | null = null, lng: number | null = null;
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        lat = loc.coords.latitude;
+        lng = loc.coords.longitude;
+      }
+      const { data, error } = await supabase.rpc('my_joined_activities', {
+        p_lat: lat ?? 0,
+        p_lng: lng ?? 0,
+      });
       if (error) { console.error(error); return; }
-      setJoinedActivities((data ?? []) as JoinedActivity[]);
+      const rows = ((data ?? []) as JoinedActivity[]).map(r => ({
+        ...r,
+        distance_m: lat !== null ? r.distance_m : undefined,
+      }));
+      setJoinedActivities(rows);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -267,7 +283,7 @@ export default function MyPlansScreen() {
                 </Pressable>
               )}>
               <View style={{ backgroundColor: theme.bg }}>
-                <ActivityCard activity={item} />
+                <ActivityCard activity={item} onPress={() => setDetailActivity(item)} />
                 <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.join_status] + '18', borderColor: STATUS_COLOR[item.join_status] + '50' }]}>
                   <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.join_status] }]} />
                   <ThemedText type="caption" style={{ color: STATUS_COLOR[item.join_status], fontWeight: '600' }}>
@@ -283,6 +299,10 @@ export default function MyPlansScreen() {
           }
         />
       )}
+      <ActivityDetailModal
+        activity={detailActivity}
+        onClose={() => setDetailActivity(null)}
+      />
     </SafeAreaView>
   );
 }
