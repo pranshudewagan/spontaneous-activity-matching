@@ -122,7 +122,7 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
               <ThemedText style={[styles.metaText, { color: theme.accent, fontWeight: '700' }]}>
                 {joinPolicyLabel(activity.mode)}
               </ThemedText>
-              <ThemedText style={[styles.metaText, { color: theme.muted }]}>
+              <ThemedText style={[styles.metaText, { color: theme.muted, fontWeight: '700' }]}>
                 {' · '}{going} / {total} going
               </ThemedText>
             </View>
