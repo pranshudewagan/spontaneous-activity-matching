@@ -17,11 +17,13 @@ describe('milesToMeters', () => {
 });
 
 describe('formatDistanceMi', () => {
-  it('shows one decimal for distances under 10 mi', () => {
-    expect(formatDistanceMi(1609.344)).toBe('1.0 mi');
-    expect(formatDistanceMi(482.8)).toBe('0.3 mi');
+  it('returns Nearby for distances under 1 mi', () => {
+    expect(formatDistanceMi(482.8)).toBe('Nearby');
+    expect(formatDistanceMi(0)).toBe('Nearby');
   });
-  it('rounds to whole number for 10+ mi', () => {
+  it('rounds to nearest whole mile for 1+ mi', () => {
+    expect(formatDistanceMi(1609.344)).toBe('1 mi');
+    expect(formatDistanceMi(3700)).toBe('2 mi');
     expect(formatDistanceMi(16093.44)).toBe('10 mi');
     expect(formatDistanceMi(32186.88)).toBe('20 mi');
   });
