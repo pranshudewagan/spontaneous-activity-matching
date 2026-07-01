@@ -48,6 +48,7 @@ export default function MyPlansScreen() {
   const [joinedActivities, setJoinedActivities] = useState<JoinedActivity[]>([]);
   const [loading,          setLoading]          = useState(true);
   const [refreshing,       setRefreshing]       = useState(false);
+  const joinedSwipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
   useEffect(() => {
     if (activeTab === 'hosting') loadHosted();
@@ -118,6 +119,30 @@ export default function MyPlansScreen() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const confirmLeave = (item: JoinedActivity) => {
+    joinedSwipeRefs.current.get(item.id)?.close();
+    const isAccepted = item.join_status === 'accepted';
+    const isPast     = new Date(item.start_time) <= new Date();
+    const title   = isAccepted ? 'Leave this activity?' : 'Withdraw request?';
+    const message = isAccepted
+      ? isPast
+        ? "You'll lose chat access. This can't be undone."
+        : "You'll lose your spot. The next person on the waitlist will be offered your place."
+      : "Your request will be withdrawn.";
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: isAccepted ? 'Leave' : 'Withdraw',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.rpc('participant_leave', { p_activity_id: item.id });
+          if (error) { console.error('participant_leave failed:', error); return; }
+          setJoinedActivities(prev => prev.filter(a => a.id !== item.id));
+        },
+      },
+    ]);
   };
 
   return (
@@ -230,15 +255,27 @@ export default function MyPlansScreen() {
           style={styles.fill}
           contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
           renderItem={({ item }) => (
-            <View>
-              <ActivityCard activity={item} />
-              <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.join_status] + '18', borderColor: STATUS_COLOR[item.join_status] + '50' }]}>
-                <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.join_status] }]} />
-                <ThemedText type="caption" style={{ color: STATUS_COLOR[item.join_status], fontWeight: '600' }}>
-                  {STATUS_LABEL[item.join_status]}
-                </ThemedText>
+            <Swipeable
+              ref={r => { joinedSwipeRefs.current.set(item.id, r); }}
+              friction={2}
+              overshootRight={false}
+              renderRightActions={() => (
+                <Pressable
+                  style={styles.leaveAction}
+                  onPress={() => confirmLeave(item)}>
+                  <ThemedText style={styles.leaveActionText}>✕</ThemedText>
+                </Pressable>
+              )}>
+              <View style={{ backgroundColor: theme.bg }}>
+                <ActivityCard activity={item} />
+                <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.join_status] + '18', borderColor: STATUS_COLOR[item.join_status] + '50' }]}>
+                  <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.join_status] }]} />
+                  <ThemedText type="caption" style={{ color: STATUS_COLOR[item.join_status], fontWeight: '600' }}>
+                    {STATUS_LABEL[item.join_status]}
+                  </ThemedText>
+                </View>
               </View>
-            </View>
+            </Swipeable>
           )}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -289,6 +326,16 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.two,
   },
   cancelActionText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  leaveAction: {
+    backgroundColor: '#E53E3E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 72,
+    borderRadius: 16,
+    marginBottom: Spacing.two,
+    marginLeft: Spacing.two,
+  },
+  leaveActionText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
 
   statusBadge: {
