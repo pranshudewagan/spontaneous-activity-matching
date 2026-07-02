@@ -50,19 +50,22 @@ export default function MyPlansScreen() {
   const [loading,          setLoading]          = useState(true);
   const [refreshing,       setRefreshing]       = useState(false);
   const [detailActivity,   setDetailActivity]   = useState<ActivityDetail | null>(null);
-  const joinedSwipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
-  const focusCount      = useRef(0);
+  const joinedSwipeRefs  = useRef<Map<string, Swipeable | null>>(new Map());
+  const focusCount       = useRef(0);
+  const initialLoaded    = useRef(false);
 
   useFocusEffect(useCallback(() => {
     focusCount.current += 1;
     if (focusCount.current === 1) return;
-    if (activeTab === 'hosting') loadHosted();
-    else loadJoined();
+    if (activeTab === 'hosting') loadHosted(false, true);
+    else loadJoined(false, true);
   }, [activeTab]));
 
   useEffect(() => {
-    if (activeTab === 'hosting') loadHosted();
-    else loadJoined();
+    const silent = initialLoaded.current;
+    initialLoaded.current = true;
+    if (activeTab === 'hosting') loadHosted(false, silent);
+    else loadJoined(false, silent);
   }, [activeTab]);
 
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -98,9 +101,11 @@ export default function MyPlansScreen() {
     ]);
   };
 
-  const loadHosted = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const loadHosted = async (isRefresh = false, silent = false) => {
+    if (!silent) {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+    }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       let lat = 0, lng = 0;
@@ -113,14 +118,15 @@ export default function MyPlansScreen() {
       if (error) { console.error(error); return; }
       setActivities((data ?? []) as ActivityCardData[]);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) { setLoading(false); setRefreshing(false); }
     }
   };
 
-  const loadJoined = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const loadJoined = async (isRefresh = false, silent = false) => {
+    if (!silent) {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+    }
     try {
       let lat: number | null = null, lng: number | null = null;
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -140,8 +146,7 @@ export default function MyPlansScreen() {
       }));
       setJoinedActivities(rows);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) { setLoading(false); setRefreshing(false); }
     }
   };
 
@@ -309,7 +314,7 @@ export default function MyPlansScreen() {
       )}
       <ActivityDetailModal
         activity={detailActivity}
-        onClose={() => setDetailActivity(null)}
+        onClose={() => { setDetailActivity(null); loadJoined(false, true); }}
       />
     </SafeAreaView>
   );

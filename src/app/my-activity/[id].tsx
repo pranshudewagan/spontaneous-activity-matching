@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -67,10 +67,17 @@ export default function ActivityRequestsScreen() {
   const [acting,        setActing]        = useState<string | null>(null);
   const [removing,      setRemoving]      = useState<string | null>(null);
 
+  const focusCount = useRef(0);
+  useFocusEffect(useCallback(() => {
+    focusCount.current += 1;
+    if (focusCount.current === 1) return;
+    if (id) loadData(true);
+  }, [id]));
+
   useEffect(() => { if (id) loadData(); }, [id]);
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(silent = false) {
+    if (!silent) setLoading(true);
     const [activityRes, requestsRes, acceptedRes, countRes] = await Promise.all([
       supabase
         .from('activities')
@@ -89,7 +96,7 @@ export default function ActivityRequestsScreen() {
     if (requestsRes.data)  setRequests(requestsRes.data as JoinRequest[]);
     if (acceptedRes.data)  setAccepted(acceptedRes.data as AcceptedParticipant[]);
     if (countRes.count != null) setAcceptedCount(countRes.count);
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 
   async function handleRespond(requestId: string, accept: boolean) {
