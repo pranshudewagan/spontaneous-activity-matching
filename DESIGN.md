@@ -46,7 +46,7 @@ Define everything as tokens (never hardcode hex in screens). The app is light mo
 Brand:
 | Token | Hex | Use |
 |---|---|---|
-| `action` | `#e66e50` | Primary CTAs, swipe-right, "I'm in" — sunset coral |
+| `action` | `#f66645` | Primary CTAs, swipe-right, "I'm in" — sunset coral |
 | `accent` | `#2AAFA8` | Trust/safety cues, info, links — ocean teal |
 | `bg` | `#FFFAF8` | App background — faint warm tint, not cream |
 
