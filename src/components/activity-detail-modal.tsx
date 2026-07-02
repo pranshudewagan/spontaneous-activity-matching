@@ -72,26 +72,28 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
       onRequestClose={onClose}
     >
       <View style={[styles.container, { backgroundColor: theme.bg }]}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.four }}
-          showsVerticalScrollIndicator={false}
-          bounces
-        >
-          {/* Image */}
-          {activity.image_url ? (
-            <Image
-              source={{ uri: activity.image_url }}
-              style={styles.image}
-              contentFit="cover"
-            />
-          ) : (
-            <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: theme.line }]} />
-          )}
 
-          {/* Content card — overlaps image bottom with rounded top corners */}
-          <View style={[styles.content, { backgroundColor: theme.bg }]}>
+        {/* Fixed image */}
+        {activity.image_url ? (
+          <Image
+            source={{ uri: activity.image_url }}
+            style={styles.image}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: theme.line }]} />
+        )}
 
+        {/* Content card — fills rest of screen, overlaps image bottom */}
+        <View style={[styles.content, { backgroundColor: theme.bg }]}>
+
+          {/* Scrollable details */}
+          <ScrollView
+            style={styles.scrollSection}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             <ThemedText style={[styles.title, { color: theme.ink }]}>
               {activity.title}
             </ThemedText>
@@ -140,7 +142,10 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
                 {activity.description}
               </ThemedText>
             )}
+          </ScrollView>
 
+          {/* Pinned bottom — info box + Done */}
+          <View style={[styles.pinned, { paddingBottom: insets.bottom + Spacing.three }]}>
             <View style={[styles.infoBox, { backgroundColor: theme.accent + '12', borderColor: theme.accent + '30' }]}>
               <Ionicons name="information-circle-outline" size={33} color={theme.accent} style={styles.infoIcon} />
               <ThemedText type="caption" style={{ color: theme.accent, lineHeight: 18, flex: 1, fontWeight: '700' }}>
@@ -148,16 +153,15 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
               </ThemedText>
             </View>
 
-            {/* Done button */}
             <Pressable
               style={[styles.doneBtn, { backgroundColor: theme.accent }]}
               onPress={onClose}
             >
               <ThemedText style={[styles.doneBtnText, { color: '#fff' }]}>Done</ThemedText>
             </Pressable>
-
           </View>
-        </ScrollView>
+
+        </View>
       </View>
     </Modal>
   );
@@ -165,10 +169,6 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-
-  scroll: {
     flex: 1,
   },
 
@@ -181,13 +181,21 @@ const styles = StyleSheet.create({
   },
 
   content: {
+    flex: 1,
     marginTop: -28,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: Spacing.three * 1.5,
+    overflow: 'hidden',
     paddingTop: Spacing.four,
-    paddingBottom: Spacing.three,
+  },
+
+  scrollSection: {
+    flex: 1,
+    paddingHorizontal: Spacing.three * 1.5,
+  },
+  scrollContent: {
     gap: Spacing.three,
+    paddingBottom: Spacing.two,
   },
 
   title: {
@@ -240,6 +248,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  pinned: {
+    paddingHorizontal: Spacing.three * 1.5,
+    paddingTop: Spacing.two,
+    gap: Spacing.three,
+  },
+
   infoBox: {
     borderWidth: 1,
     borderRadius: 12,
@@ -257,7 +271,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: Spacing.two + 4,
     alignItems: 'center',
-    marginTop: Spacing.two,
   },
   doneBtnText: {
     fontSize: 16,

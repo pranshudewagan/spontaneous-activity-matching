@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActivityDetailModal, type ActivityDetail } from '@/components/activity-detail-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -14,10 +15,13 @@ type AcceptMode = 'auto' | 'auto_criteria' | 'manual';
 type ActivitySummary = {
   id: string;
   title: string;
+  description: string | null;
   start_time: string;
   time_flexible: boolean;
   mode: AcceptMode;
   max_participants: number;
+  tags: string[];
+  image_url: string | null;
 };
 
 type JoinRequest = {
@@ -66,6 +70,7 @@ export default function ActivityRequestsScreen() {
   const [loading,       setLoading]       = useState(true);
   const [acting,        setActing]        = useState<string | null>(null);
   const [removing,      setRemoving]      = useState<string | null>(null);
+  const [previewing,    setPreviewing]    = useState(false);
 
   const focusCount = useRef(0);
   useFocusEffect(useCallback(() => {
@@ -81,7 +86,7 @@ export default function ActivityRequestsScreen() {
     const [activityRes, requestsRes, acceptedRes, countRes] = await Promise.all([
       supabase
         .from('activities')
-        .select('id, title, start_time, time_flexible, mode, max_participants')
+        .select('id, title, description, start_time, time_flexible, mode, max_participants, tags, image_url')
         .eq('id', id)
         .single(),
       supabase.rpc('get_join_requests_for_activity', { p_activity_id: id }),
@@ -195,12 +200,20 @@ export default function ActivityRequestsScreen() {
                 <ThemedText type="label" style={{ color: theme.accent }}>
                   {acceptedCount + 1} / {activity.max_participants} going
                 </ThemedText>
-                <Pressable
-                  style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
-                  onPress={() => router.push(`/host?id=${activity.id}`)}>
-                  <ThemedText type="label" style={{ color: theme.ink }}>Edit plan</ThemedText>
-                  <Feather name="edit-2" size={13} color={theme.ink} />
-                </Pressable>
+                <View style={styles.summaryActions}>
+                  <Pressable
+                    style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
+                    onPress={() => setPreviewing(true)}>
+                    <ThemedText type="label" style={{ color: theme.ink }}>Preview</ThemedText>
+                    <Feather name="eye" size={13} color={theme.ink} />
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
+                    onPress={() => router.push(`/host?id=${activity.id}`)}>
+                    <ThemedText type="label" style={{ color: theme.ink }}>Edit plan</ThemedText>
+                    <Feather name="edit-2" size={13} color={theme.ink} />
+                  </Pressable>
+                </View>
               </View>
             </View>
           )}
@@ -267,6 +280,10 @@ export default function ActivityRequestsScreen() {
           )}
         </ScrollView>
       )}
+      <ActivityDetailModal
+        activity={activity && previewing ? { ...activity, accepted_count: acceptedCount } as ActivityDetail : null}
+        onClose={() => setPreviewing(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -411,6 +428,10 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'space-between',
     marginTop:       Spacing.one,
+  },
+  summaryActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   editBtn: {
     flexDirection:    'row',
