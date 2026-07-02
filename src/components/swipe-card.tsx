@@ -136,7 +136,8 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.card, { height: cardHeight ?? CARD_H }, cardStyle]}>
+      <Animated.View style={[styles.cardShadow, { height: cardHeight ?? CARD_H }, cardStyle]}>
+      <View style={styles.card}>
 
         {/* Image / placeholder fills full card */}
         {activity.image_url ? (
@@ -158,11 +159,11 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
         </View>
 
         {/* Swipe overlays */}
-        <Animated.View style={[styles.overlay, styles.overlayLeft, passStyle]}>
-          <ThemedText style={styles.overlayTextPass}>PASS</ThemedText>
-        </Animated.View>
-        <Animated.View style={[styles.overlay, styles.overlayRight, yesStyle]}>
+        <Animated.View style={[styles.overlay, styles.overlayLeft, yesStyle]}>
           <ThemedText style={styles.overlayTextYes}>YES</ThemedText>
+        </Animated.View>
+        <Animated.View style={[styles.overlay, styles.overlayRight, passStyle]}>
+          <ThemedText style={styles.overlayTextPass}>PASS</ThemedText>
         </Animated.View>
 
         {/* Fixed bottom — show more/less + divider + tags + spots, never animated */}
@@ -221,23 +222,28 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
           )}
         </Animated.View>
 
+      </View>
       </Animated.View>
     </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardShadow: {
     width: CARD_W,
     height: CARD_H,
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#1A100D',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 6,
     position: 'absolute',
+    shadowColor: '#1A100D',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  card: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
 
   image: {
@@ -270,12 +276,12 @@ const styles = StyleSheet.create({
   },
   overlayLeft: {
     left: 20,
-    borderColor: '#F4845F',
+    borderColor: '#2AAFA8',
     transform: [{ rotate: '-15deg' }],
   },
   overlayRight: {
     right: 20,
-    borderColor: '#2AAFA8',
+    borderColor: '#F4845F',
     transform: [{ rotate: '15deg' }],
   },
   overlayTextPass: { fontSize: 22, fontWeight: '800', color: '#F4845F' },
