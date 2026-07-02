@@ -200,7 +200,7 @@ export default function DiscoverScreen() {
       </View>
 
       {/* Stack */}
-      <View style={styles.stackContainer}>
+      <View style={[styles.stackContainer, { backgroundColor: theme.bg }]}>
         {/* Empty state always in the background once loaded — no pop-in after last swipe */}
         {!loading && <EmptyDiscover onWidenRadius={() => setSheetOpen(true)} />}
 
@@ -237,7 +237,7 @@ export default function DiscoverScreen() {
       </View>
 
       {toastMsg !== null && (
-        <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
+        <Animated.View style={[styles.toast, { opacity: toastOpacity, backgroundColor: theme.accent }]}>
           <ThemedText type="label" style={styles.toastText}>{toastMsg}</ThemedText>
         </Animated.View>
       )}
@@ -276,7 +276,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.light.bg,
   },
   stackFloat: {
     ...StyleSheet.absoluteFillObject,
@@ -293,7 +292,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: BottomTabInset + 48,
     alignSelf: 'center',
-    backgroundColor: Colors.light.accent,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,

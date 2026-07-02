@@ -143,14 +143,14 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
         {activity.image_url ? (
           <Image
             source={{ uri: activity.image_url }}
-            style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : Colors.light.line }]}
+            style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : theme.line }]}
             contentFit="cover"
             transition={250}
             onLoad={() => onImageReady?.()}
             onError={() => onImageReady?.()}
           />
         ) : (
-          <View style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : Colors.light.line }]} />
+          <View style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : theme.line }]} />
         )}
 
         {/* Distance badge — top left over image */}
@@ -159,11 +159,11 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
         </View>
 
         {/* Swipe overlays */}
-        <Animated.View style={[styles.overlay, styles.overlayLeft, yesStyle]}>
-          <ThemedText style={styles.overlayTextYes}>YES</ThemedText>
+        <Animated.View style={[styles.overlay, styles.overlayLeft, yesStyle, { borderColor: theme.accent }]}>
+          <ThemedText style={[styles.overlayTextYes, { color: theme.accent }]}>YES</ThemedText>
         </Animated.View>
-        <Animated.View style={[styles.overlay, styles.overlayRight, passStyle]}>
-          <ThemedText style={styles.overlayTextPass}>PASS</ThemedText>
+        <Animated.View style={[styles.overlay, styles.overlayRight, passStyle, { borderColor: theme.action }]}>
+          <ThemedText style={[styles.overlayTextPass, { color: theme.action }]}>PASS</ThemedText>
         </Animated.View>
 
         {/* Fixed bottom — show more/less + divider + tags + spots, never animated */}
@@ -276,16 +276,14 @@ const styles = StyleSheet.create({
   },
   overlayLeft: {
     left: 20,
-    borderColor: Colors.light.accent,
     transform: [{ rotate: '-15deg' }],
   },
   overlayRight: {
     right: 20,
-    borderColor: Colors.light.action,
     transform: [{ rotate: '15deg' }],
   },
-  overlayTextPass: { fontSize: 22, fontWeight: '800', color: Colors.light.action },
-  overlayTextYes:  { fontSize: 22, fontWeight: '800', color: Colors.light.accent },
+  overlayTextPass: { fontSize: 22, fontWeight: '800' },
+  overlayTextYes:  { fontSize: 22, fontWeight: '800' },
 
   // Fixed bottom — show more/less + tags + spots, never participates in layout animation
   fixedPanel: {

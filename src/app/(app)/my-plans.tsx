@@ -33,15 +33,16 @@ const STATUS_LABEL: Record<JoinedActivity['join_status'], string> = {
   waitlisted: 'Waitlisted',
   interested: 'Pending',
 };
-const STATUS_COLOR: Record<JoinedActivity['join_status'], string> = {
-  accepted:   Colors.light.success,
-  waitlisted: Colors.light.warning,
-  interested: Colors.light.warning,
-};
 
 export default function MyPlansScreen() {
   const router = useRouter();
   const theme  = Colors.light;
+
+  const STATUS_COLOR: Record<JoinedActivity['join_status'], string> = {
+    accepted:   theme.success,
+    waitlisted: theme.warning,
+    interested: theme.warning,
+  };
   const { bottom } = useSafeAreaInsets();
 
   const [activeTab,        setActiveTab]        = useState<Tab>('hosting');
@@ -234,7 +235,7 @@ export default function MyPlansScreen() {
                   overshootRight={false}
                   renderRightActions={() => (
                     <Pressable
-                      style={styles.cancelAction}
+                      style={[styles.cancelAction, { backgroundColor: theme.danger }]}
                       onPress={() => confirmCancel(item, canDelete)}>
                       <ThemedText style={styles.cancelActionText}>✕</ThemedText>
                     </Pressable>
@@ -290,7 +291,7 @@ export default function MyPlansScreen() {
               overshootRight={false}
               renderRightActions={() => (
                 <Pressable
-                  style={styles.leaveAction}
+                  style={[styles.leaveAction, { backgroundColor: theme.danger }]}
                   onPress={() => confirmLeave(item)}>
                   <ThemedText style={styles.leaveActionText}>✕</ThemedText>
                 </Pressable>
@@ -350,7 +351,6 @@ const styles = StyleSheet.create({
   list:   { padding: Spacing.three, flexGrow: 1 },
 
   cancelAction: {
-    backgroundColor: Colors.light.danger,
     justifyContent: 'center',
     alignItems: 'center',
     width: 72,
@@ -360,7 +360,6 @@ const styles = StyleSheet.create({
   },
   cancelActionText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   leaveAction: {
-    backgroundColor: Colors.light.danger,
     justifyContent: 'center',
     alignItems: 'center',
     width: 72,
