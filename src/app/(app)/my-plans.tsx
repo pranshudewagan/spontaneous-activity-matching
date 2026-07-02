@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
@@ -51,6 +51,14 @@ export default function MyPlansScreen() {
   const [refreshing,       setRefreshing]       = useState(false);
   const [detailActivity,   setDetailActivity]   = useState<ActivityDetail | null>(null);
   const joinedSwipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
+  const focusCount      = useRef(0);
+
+  useFocusEffect(useCallback(() => {
+    focusCount.current += 1;
+    if (focusCount.current === 1) return;
+    if (activeTab === 'hosting') loadHosted();
+    else loadJoined();
+  }, [activeTab]));
 
   useEffect(() => {
     if (activeTab === 'hosting') loadHosted();

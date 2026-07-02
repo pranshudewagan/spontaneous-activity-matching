@@ -241,6 +241,12 @@ export default function HostScreen() {
 
   const showConfirmation = (submitState === 'posted' || submitState === 'updated') && !isDirty;
 
+  useEffect(() => {
+    if (!showConfirmation) return;
+    const t = setTimeout(() => router.back(), 1500);
+    return () => clearTimeout(t);
+  }, [showConfirmation]);
+
   const doSubmit = async (finalCriteria: Criteria) => {
     setSubmitState('submitting');
     try {
@@ -396,7 +402,8 @@ export default function HostScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        pointerEvents={showConfirmation ? 'none' : 'auto'}>
 
         {/* Title */}
         <View style={styles.field}>
