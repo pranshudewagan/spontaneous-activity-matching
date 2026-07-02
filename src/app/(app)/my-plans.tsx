@@ -34,9 +34,9 @@ const STATUS_LABEL: Record<JoinedActivity['join_status'], string> = {
   interested: 'Pending',
 };
 const STATUS_COLOR: Record<JoinedActivity['join_status'], string> = {
-  accepted:   '#1E9E8E',
-  waitlisted: '#E09020',
-  interested: '#E09020',
+  accepted:   Colors.light.success,
+  waitlisted: Colors.light.warning,
+  interested: Colors.light.warning,
 };
 
 export default function MyPlansScreen() {
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   list:   { padding: Spacing.three, flexGrow: 1 },
 
   cancelAction: {
-    backgroundColor: '#E53E3E',
+    backgroundColor: Colors.light.danger,
     justifyContent: 'center',
     alignItems: 'center',
     width: 72,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   cancelActionText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   leaveAction: {
-    backgroundColor: '#E53E3E',
+    backgroundColor: Colors.light.danger,
     justifyContent: 'center',
     alignItems: 'center',
     width: 72,

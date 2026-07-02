@@ -143,14 +143,14 @@ export function SwipeCard({ activity, isTop, index, cardHeight, onSwipeLeft, onS
         {activity.image_url ? (
           <Image
             source={{ uri: activity.image_url }}
-            style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : '#E8E0D8' }]}
+            style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : Colors.light.line }]}
             contentFit="cover"
             transition={250}
             onLoad={() => onImageReady?.()}
             onError={() => onImageReady?.()}
           />
         ) : (
-          <View style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : '#E8E0D8' }]} />
+          <View style={[styles.image, { backgroundColor: activity.tags.length > 0 ? accentColor + '4D' : Colors.light.line }]} />
         )}
 
         {/* Distance badge — top left over image */}
@@ -276,16 +276,16 @@ const styles = StyleSheet.create({
   },
   overlayLeft: {
     left: 20,
-    borderColor: '#2AAFA8',
+    borderColor: Colors.light.accent,
     transform: [{ rotate: '-15deg' }],
   },
   overlayRight: {
     right: 20,
-    borderColor: '#F4845F',
+    borderColor: Colors.light.action,
     transform: [{ rotate: '15deg' }],
   },
-  overlayTextPass: { fontSize: 22, fontWeight: '800', color: '#F4845F' },
-  overlayTextYes:  { fontSize: 22, fontWeight: '800', color: '#2AAFA8' },
+  overlayTextPass: { fontSize: 22, fontWeight: '800', color: Colors.light.action },
+  overlayTextYes:  { fontSize: 22, fontWeight: '800', color: Colors.light.accent },
 
   // Fixed bottom — show more/less + tags + spots, never participates in layout animation
   fixedPanel: {

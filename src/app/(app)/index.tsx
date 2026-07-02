@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFAF8',
+    backgroundColor: Colors.light.bg,
   },
   stackFloat: {
     ...StyleSheet.absoluteFillObject,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: BottomTabInset + 48,
     alignSelf: 'center',
-    backgroundColor: '#2AAFA8',
+    backgroundColor: Colors.light.accent,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
