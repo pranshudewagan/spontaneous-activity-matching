@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
-  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -219,17 +218,20 @@ export default function MyPlansScreen() {
             <EmptyHosting />
           </ScrollView>
         ) : (
-          <FlatList
-            data={activities}
-            keyExtractor={a => a.id}
+          <ScrollView
             style={styles.fill}
             contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
-            renderItem={({ item }) => {
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.accent} />
+            }>
+            {activities.map(item => {
               const isPast    = new Date(item.start_time) <= new Date();
               const canDelete = isPast && item.accepted_count === 0;
-              if (isPast && !canDelete) return <ActivityCard activity={item} muted />;
+              if (isPast && !canDelete) return <ActivityCard key={item.id} activity={item} muted />;
               return (
                 <Swipeable
+                  key={item.id}
                   ref={r => { swipeableRefs.current.set(item.id, r); }}
                   friction={2}
                   overshootRight={false}
@@ -259,12 +261,8 @@ export default function MyPlansScreen() {
                   </View>
                 </Swipeable>
               );
-            }}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.accent} />
-            }
-          />
+            })}
+          </ScrollView>
         )}
       </View>
 
@@ -283,13 +281,16 @@ export default function MyPlansScreen() {
             <EmptyJoined />
           </ScrollView>
         ) : (
-          <FlatList
-            data={joinedActivities}
-            keyExtractor={a => a.id}
+          <ScrollView
             style={styles.fill}
             contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
-            renderItem={({ item }) => (
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
+            }>
+            {joinedActivities.map(item => (
               <Swipeable
+                key={item.id}
                 ref={r => { joinedSwipeRefs.current.set(item.id, r); }}
                 friction={2}
                 overshootRight={false}
@@ -310,12 +311,8 @@ export default function MyPlansScreen() {
                   </View>
                 </View>
               </Swipeable>
-            )}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
-            }
-          />
+            ))}
+          </ScrollView>
         )}
       </View>
       <ActivityDetailModal
