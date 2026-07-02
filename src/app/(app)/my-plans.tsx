@@ -48,26 +48,26 @@ export default function MyPlansScreen() {
   const [activeTab,        setActiveTab]        = useState<Tab>('hosting');
   const [activities,       setActivities]       = useState<ActivityCardData[]>([]);
   const [joinedActivities, setJoinedActivities] = useState<JoinedActivity[]>([]);
-  const [loading,          setLoading]          = useState(true);
+  const [loadingHosted,    setLoadingHosted]    = useState(true);
+  const [loadingJoined,    setLoadingJoined]    = useState(true);
   const [refreshing,       setRefreshing]       = useState(false);
   const [detailActivity,   setDetailActivity]   = useState<ActivityDetail | null>(null);
-  const joinedSwipeRefs  = useRef<Map<string, Swipeable | null>>(new Map());
-  const focusCount       = useRef(0);
-  const initialLoaded    = useRef(false);
+  const joinedSwipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
+  const focusCount      = useRef(0);
 
+  // Load both tabs in parallel on mount — user only sees hosting's spinner
+  useEffect(() => {
+    loadHosted();
+    loadJoined();
+  }, []);
+
+  // Re-focus: silently refresh both behind whatever tab is visible
   useFocusEffect(useCallback(() => {
     focusCount.current += 1;
     if (focusCount.current === 1) return;
-    if (activeTab === 'hosting') loadHosted(false, true);
-    else loadJoined(false, true);
-  }, [activeTab]));
-
-  useEffect(() => {
-    const silent = initialLoaded.current;
-    initialLoaded.current = true;
-    if (activeTab === 'hosting') loadHosted(false, silent);
-    else loadJoined(false, silent);
-  }, [activeTab]);
+    loadHosted(false, true);
+    loadJoined(false, true);
+  }, []));
 
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
@@ -105,7 +105,7 @@ export default function MyPlansScreen() {
   const loadHosted = async (isRefresh = false, silent = false) => {
     if (!silent) {
       if (isRefresh) setRefreshing(true);
-      else setLoading(true);
+      else setLoadingHosted(true);
     }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -119,14 +119,14 @@ export default function MyPlansScreen() {
       if (error) { console.error(error); return; }
       setActivities((data ?? []) as ActivityCardData[]);
     } finally {
-      if (!silent) { setLoading(false); setRefreshing(false); }
+      if (!silent) { setLoadingHosted(false); setRefreshing(false); }
     }
   };
 
   const loadJoined = async (isRefresh = false, silent = false) => {
     if (!silent) {
       if (isRefresh) setRefreshing(true);
-      else setLoading(true);
+      else setLoadingJoined(true);
     }
     try {
       let lat: number | null = null, lng: number | null = null;
@@ -147,7 +147,7 @@ export default function MyPlansScreen() {
       }));
       setJoinedActivities(rows);
     } finally {
-      if (!silent) { setLoading(false); setRefreshing(false); }
+      if (!silent) { setLoadingJoined(false); setRefreshing(false); }
     }
   };
 
@@ -206,7 +206,7 @@ export default function MyPlansScreen() {
 
       {/* Content */}
       {activeTab === 'hosting' ? (
-        loading ? (
+        loadingHosted ? (
           <View style={styles.center}>
             <ActivityIndicator color={theme.action} />
           </View>
@@ -266,7 +266,7 @@ export default function MyPlansScreen() {
             }
           />
         )
-      ) : loading ? (
+      ) : loadingJoined ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.action} />
         </View>
