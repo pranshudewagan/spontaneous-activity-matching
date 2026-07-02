@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 export const Colors = {
   light: {
     // DESIGN.md brand tokens — sunset ocean, warm-led
-    action:  '#F4845F',   // sunset coral — CTAs, swipe-right
+    action:  '#e66e50',   // sunset coral — CTAs, swipe-right
     accent:  '#2AAFA8',   // ocean teal — links, trust, safety
     // DESIGN.md functional tokens
     bg:      '#FFFAF8',   // warm-tinted background
@@ -25,7 +25,7 @@ export const Colors = {
   },
   dark: {
     // DESIGN.md brand tokens
-    action:  '#F4845F',
+    action:  '#e66e50',
     accent:  '#2AAFA8',
     // DESIGN.md functional tokens
     bg:      '#140F0D',
