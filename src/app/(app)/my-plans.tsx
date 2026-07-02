@@ -48,24 +48,26 @@ export default function MyPlansScreen() {
   const [activeTab,        setActiveTab]        = useState<Tab>('hosting');
   const [activities,       setActivities]       = useState<ActivityCardData[]>([]);
   const [joinedActivities, setJoinedActivities] = useState<JoinedActivity[]>([]);
-  const [loadingHosted,    setLoadingHosted]    = useState(true);
-  const [loadingJoined,    setLoadingJoined]    = useState(true);
+  const [loading,          setLoading]          = useState(true);
   const [refreshing,       setRefreshing]       = useState(false);
   const [detailActivity,   setDetailActivity]   = useState<ActivityDetail | null>(null);
-  const joinedSwipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
-  const focusCount      = useRef(0);
+  const joinedSwipeRefs  = useRef<Map<string, Swipeable | null>>(new Map());
+  const focusCount       = useRef(0);
+  const initialLoaded    = useRef(false);
 
   useFocusEffect(useCallback(() => {
     focusCount.current += 1;
     if (focusCount.current === 1) return;
-    loadHosted(false, true);
-    loadJoined(false, true);
-  }, []));
+    if (activeTab === 'hosting') loadHosted(false, true);
+    else loadJoined(false, true);
+  }, [activeTab]));
 
   useEffect(() => {
-    loadHosted();
-    loadJoined(false, true);
-  }, []);
+    const silent = initialLoaded.current;
+    initialLoaded.current = true;
+    if (activeTab === 'hosting') loadHosted(false, silent);
+    else loadJoined(false, silent);
+  }, [activeTab]);
 
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
@@ -103,7 +105,7 @@ export default function MyPlansScreen() {
   const loadHosted = async (isRefresh = false, silent = false) => {
     if (!silent) {
       if (isRefresh) setRefreshing(true);
-      else setLoadingHosted(true);
+      else setLoading(true);
     }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -117,14 +119,14 @@ export default function MyPlansScreen() {
       if (error) { console.error(error); return; }
       setActivities((data ?? []) as ActivityCardData[]);
     } finally {
-      if (!silent) { setLoadingHosted(false); setRefreshing(false); }
+      if (!silent) { setLoading(false); setRefreshing(false); }
     }
   };
 
   const loadJoined = async (isRefresh = false, silent = false) => {
     if (!silent) {
       if (isRefresh) setRefreshing(true);
-      else setLoadingJoined(true);
+      else setLoading(true);
     }
     try {
       let lat: number | null = null, lng: number | null = null;
@@ -145,7 +147,7 @@ export default function MyPlansScreen() {
       }));
       setJoinedActivities(rows);
     } finally {
-      if (!silent) { setLoadingJoined(false); setRefreshing(false); }
+      if (!silent) { setLoading(false); setRefreshing(false); }
     }
   };
 
@@ -204,7 +206,7 @@ export default function MyPlansScreen() {
 
       {/* Content */}
       {activeTab === 'hosting' ? (
-        loadingHosted ? (
+        loading ? (
           <View style={styles.center}>
             <ActivityIndicator color={theme.action} />
           </View>
@@ -264,7 +266,7 @@ export default function MyPlansScreen() {
             }
           />
         )
-      ) : loadingJoined ? (
+      ) : loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.action} />
         </View>
