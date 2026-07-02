@@ -204,9 +204,9 @@ export default function MyPlansScreen() {
         ))}
       </View>
 
-      {/* Content */}
-      {activeTab === 'hosting' ? (
-        loadingHosted ? (
+      {/* Hosting tab — always mounted, hidden when inactive */}
+      <View style={[styles.fill, activeTab !== 'hosting' && styles.hidden]}>
+        {loadingHosted ? (
           <View style={styles.center}>
             <ActivityIndicator color={theme.action} />
           </View>
@@ -265,54 +265,59 @@ export default function MyPlansScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={() => loadHosted(true)} tintColor={theme.accent} />
             }
           />
-        )
-      ) : loadingJoined ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={theme.action} />
-        </View>
-      ) : joinedActivities.length === 0 ? (
-        <ScrollView
-          contentContainerStyle={styles.center}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
-          }>
-          <EmptyJoined />
-        </ScrollView>
-      ) : (
-        <FlatList
-          data={joinedActivities}
-          keyExtractor={a => a.id}
-          style={styles.fill}
-          contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
-          renderItem={({ item }) => (
-            <Swipeable
-              ref={r => { joinedSwipeRefs.current.set(item.id, r); }}
-              friction={2}
-              overshootRight={false}
-              renderRightActions={() => (
-                <Pressable
-                  style={[styles.leaveAction, { backgroundColor: theme.danger }]}
-                  onPress={() => confirmLeave(item)}>
-                  <ThemedText style={styles.leaveActionText}>✕</ThemedText>
-                </Pressable>
-              )}>
-              <View style={{ backgroundColor: theme.bg }}>
-                <ActivityCard activity={item} onPress={() => setDetailActivity(item)} />
-                <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.join_status] + '18', borderColor: STATUS_COLOR[item.join_status] + '50' }]}>
-                  <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.join_status] }]} />
-                  <ThemedText type="caption" style={{ color: STATUS_COLOR[item.join_status], fontWeight: '600' }}>
-                    {STATUS_LABEL[item.join_status]}
-                  </ThemedText>
+        )}
+      </View>
+
+      {/* Joined tab — always mounted, hidden when inactive */}
+      <View style={[styles.fill, activeTab !== 'joined' && styles.hidden]}>
+        {loadingJoined ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={theme.action} />
+          </View>
+        ) : joinedActivities.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={styles.center}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
+            }>
+            <EmptyJoined />
+          </ScrollView>
+        ) : (
+          <FlatList
+            data={joinedActivities}
+            keyExtractor={a => a.id}
+            style={styles.fill}
+            contentContainerStyle={[styles.list, { paddingBottom: bottom + 20 }]}
+            renderItem={({ item }) => (
+              <Swipeable
+                ref={r => { joinedSwipeRefs.current.set(item.id, r); }}
+                friction={2}
+                overshootRight={false}
+                renderRightActions={() => (
+                  <Pressable
+                    style={[styles.leaveAction, { backgroundColor: theme.danger }]}
+                    onPress={() => confirmLeave(item)}>
+                    <ThemedText style={styles.leaveActionText}>✕</ThemedText>
+                  </Pressable>
+                )}>
+                <View style={{ backgroundColor: theme.bg }}>
+                  <ActivityCard activity={item} onPress={() => setDetailActivity(item)} />
+                  <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.join_status] + '18', borderColor: STATUS_COLOR[item.join_status] + '50' }]}>
+                    <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.join_status] }]} />
+                    <ThemedText type="caption" style={{ color: STATUS_COLOR[item.join_status], fontWeight: '600' }}>
+                      {STATUS_LABEL[item.join_status]}
+                    </ThemedText>
+                  </View>
                 </View>
-              </View>
-            </Swipeable>
-          )}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
-          }
-        />
-      )}
+              </Swipeable>
+            )}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => loadJoined(true)} tintColor={theme.accent} />
+            }
+          />
+        )}
+      </View>
       <ActivityDetailModal
         activity={detailActivity}
         onClose={() => { setDetailActivity(null); loadJoined(false, true); }}
@@ -348,6 +353,7 @@ const styles = StyleSheet.create({
   },
 
   fill:   { flex: 1 },
+  hidden: { display: 'none' },
   list:   { padding: Spacing.three, flexGrow: 1 },
 
   cancelAction: {
