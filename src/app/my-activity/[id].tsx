@@ -5,7 +5,6 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ActivityDetailModal, type ActivityDetail } from '@/components/activity-detail-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -68,9 +67,8 @@ export default function ActivityRequestsScreen() {
   const [accepted,      setAccepted]      = useState<AcceptedParticipant[]>([]);
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [loading,       setLoading]       = useState(true);
-  const [acting,        setActing]        = useState<string | null>(null);
-  const [removing,      setRemoving]      = useState<string | null>(null);
-  const [previewing,    setPreviewing]    = useState(false);
+  const [acting,   setActing]   = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const focusCount = useRef(0);
   useFocusEffect(useCallback(() => {
@@ -203,12 +201,6 @@ export default function ActivityRequestsScreen() {
                 <View style={styles.summaryActions}>
                   <Pressable
                     style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
-                    onPress={() => setPreviewing(true)}>
-                    <ThemedText type="label" style={{ color: theme.ink }}>Preview</ThemedText>
-                    <Feather name="eye" size={13} color={theme.ink} />
-                  </Pressable>
-                  <Pressable
-                    style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
                     onPress={() => router.push(`/activity/${activity.id}`)}>
                     <ThemedText type="label" style={{ color: theme.ink }}>Event info</ThemedText>
                     <Feather name="users" size={13} color={theme.ink} />
@@ -286,10 +278,6 @@ export default function ActivityRequestsScreen() {
           )}
         </ScrollView>
       )}
-      <ActivityDetailModal
-        activity={activity && previewing ? { ...activity, accepted_count: acceptedCount } as ActivityDetail : null}
-        onClose={() => setPreviewing(false)}
-      />
     </SafeAreaView>
   );
 }

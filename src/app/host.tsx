@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActivityDetailModal, type ActivityDetail } from '@/components/activity-detail-modal';
 import { RangeSlider } from '@/components/range-slider';
 import { TagChip } from '@/components/tag-chip';
 import { ThemedText } from '@/components/themed-text';
@@ -114,6 +115,7 @@ export default function HostScreen() {
   const [submitState,           setSubmitState]           = useState<'idle' | 'submitting' | 'posted' | 'updated'>('idle');
   const [criteria,              setCriteria]              = useState<Criteria>(DEFAULT_CRITERIA);
   const [showDistanceCriterion, setShowDistanceCriterion] = useState(false);
+  const [previewing,            setPreviewing]            = useState(false);
 
   const savedSnapshot  = useRef<FormSnapshot | null>(null);
   const holdTimeout    = useRef<ReturnType<typeof setTimeout>  | null>(null);
@@ -744,6 +746,15 @@ export default function HostScreen() {
           </ThemedText>
         </View>
 
+        {/* Preview — only show when title is filled in */}
+        {!!title.trim() && (
+          <Pressable
+            style={[styles.previewBtn, { borderColor: theme.line }]}
+            onPress={() => setPreviewing(true)}>
+            <ThemedText type="label" style={{ color: theme.muted }}>Preview card</ThemedText>
+          </Pressable>
+        )}
+
         {/* Submit CTA */}
         <Pressable
           style={[styles.cta, {
@@ -765,6 +776,22 @@ export default function HostScreen() {
 
         <View style={{ height: Spacing.four }} />
       </ScrollView>
+
+      <ActivityDetailModal
+        activity={previewing ? {
+          id:               activityId ?? 'preview',
+          title:            title.trim(),
+          description:      description.trim() || null,
+          start_time:       startTime.toISOString(),
+          time_flexible:    timeFlexible,
+          max_participants: maxParticipants,
+          accepted_count:   0,
+          tags:             selectedTags,
+          image_url:        imageUri ?? (removeExistingImage ? null : existingImageUrl),
+          mode,
+        } as ActivityDetail : null}
+        onClose={() => setPreviewing(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -866,6 +893,14 @@ const styles = StyleSheet.create({
   privacyNote: {
     marginBottom: Spacing.three,
     paddingHorizontal: Spacing.one,
+  },
+
+  previewBtn: {
+    borderWidth:     1,
+    borderRadius:    14,
+    paddingVertical: Spacing.two + 4,
+    alignItems:      'center',
+    marginBottom:    Spacing.two,
   },
 
   cta: {
