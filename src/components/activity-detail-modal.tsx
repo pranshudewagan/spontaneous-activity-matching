@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TagChip } from '@/components/tag-chip';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, DisplayFontBold, Spacing } from '@/constants/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const IMAGE_H = Math.round(SCREEN_W * 3 / 4);
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 26,
-    fontWeight: '700',
+    fontFamily: DisplayFontBold,
     lineHeight: 32,
   },
 

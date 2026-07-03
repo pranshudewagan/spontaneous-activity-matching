@@ -14,7 +14,7 @@ import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 
 import { TagChip } from '@/components/tag-chip';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, DisplayFontBold, Spacing } from '@/constants/theme';
 import { tagColor } from '@/lib/tags';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     overflow: 'hidden',
   },
-  title:       { fontSize: 20, fontWeight: '700', lineHeight: 26, color: '#fff' },
+  title:       { fontSize: 20, fontFamily: DisplayFontBold, lineHeight: 26, color: '#fff' },
   time:        { fontWeight: '800' },
   description: { color: 'rgba(255,255,255,0.85)', fontWeight: '700' },
   showMore:    { color: 'rgba(255,255,255,0.6)', fontWeight: '700', fontSize: 12 },
