@@ -209,6 +209,12 @@ export default function ActivityRequestsScreen() {
                   </Pressable>
                   <Pressable
                     style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
+                    onPress={() => router.push(`/activity/${activity.id}`)}>
+                    <ThemedText type="label" style={{ color: theme.ink }}>Event info</ThemedText>
+                    <Feather name="users" size={13} color={theme.ink} />
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
                     onPress={() => router.push(`/host?id=${activity.id}`)}>
                     <ThemedText type="label" style={{ color: theme.ink }}>Edit plan</ThemedText>
                     <Feather name="edit-2" size={13} color={theme.ink} />

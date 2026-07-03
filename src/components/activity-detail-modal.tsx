@@ -92,7 +92,8 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
             style={styles.scrollSection}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            bounces={false}
+            bounces={true}
+            alwaysBounceVertical={true}
           >
             <ThemedText style={[styles.title, { color: theme.ink }]}>
               {activity.title}

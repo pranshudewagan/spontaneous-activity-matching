@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -29,9 +30,9 @@ type JoinedActivity = ActivityCardData & ActivityDetail & {
 };
 
 const STATUS_LABEL: Record<JoinedActivity['join_status'], string> = {
-  accepted:   'Accepted',
-  waitlisted: 'Waitlisted',
-  interested: 'Pending',
+  accepted:   'Event Info',
+  waitlisted: 'Waitlisted · View',
+  interested: 'Pending · View',
 };
 
 export default function MyPlansScreen() {
@@ -303,12 +304,21 @@ export default function MyPlansScreen() {
                   </Pressable>
                 )}>
                 <View style={{ backgroundColor: theme.bg }}>
-                  <ActivityCard activity={item} onPress={() => setDetailActivity(item)} />
+                  <ActivityCard
+                    activity={item}
+                    onPress={() => {
+                      if (item.join_status === 'accepted') router.push(`/activity/${item.id}`);
+                      else setDetailActivity(item);
+                    }}
+                  />
                   <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.join_status] + '18', borderColor: STATUS_COLOR[item.join_status] + '50' }]}>
                     <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.join_status] }]} />
                     <ThemedText type="caption" style={{ color: STATUS_COLOR[item.join_status], fontWeight: '600' }}>
                       {STATUS_LABEL[item.join_status]}
                     </ThemedText>
+                    {item.join_status === 'accepted' && (
+                      <Feather name="chevron-right" size={12} color={STATUS_COLOR[item.join_status]} />
+                    )}
                   </View>
                 </View>
               </Swipeable>
