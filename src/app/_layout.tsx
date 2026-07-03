@@ -1,4 +1,5 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { PlusJakartaSans_600SemiBold, useFonts } from '@expo-google-fonts/plus-jakarta-sans';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -9,6 +10,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { supabase } from '@/lib/supabase';
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({ PlusJakartaSans_600SemiBold });
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const segments = useSegments();
   const router = useRouter();
@@ -33,7 +35,7 @@ export default function RootLayout() {
       <ThemeProvider value={DefaultTheme}>
         <StatusBar style="dark" />
         <AnimatedSplashOverlay />
-        {session !== undefined && (
+        {session !== undefined && fontsLoaded && (
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(app)" />
             <Stack.Screen name="my-activity/[id]" />

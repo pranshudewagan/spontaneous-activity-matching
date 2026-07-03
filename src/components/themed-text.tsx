@@ -1,6 +1,6 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { DisplayFont, Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
@@ -38,9 +38,9 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 }
 
 const styles = StyleSheet.create({
-  // DESIGN.md type scale
-  display:  { fontSize: 28, fontWeight: '600', lineHeight: 34 },
-  title:    { fontSize: 20, fontWeight: '600', lineHeight: 26 },
+  // DESIGN.md type scale — display + title use Plus Jakarta Sans
+  display:  { fontSize: 28, fontFamily: DisplayFont, lineHeight: 34 },
+  title:    { fontSize: 20, fontFamily: DisplayFont, lineHeight: 26 },
   body:     { fontSize: 16, fontWeight: '400', lineHeight: 24 },
   label:    { fontSize: 14, fontWeight: '500', lineHeight: 20 },
   caption:  { fontSize: 13, fontWeight: '400', lineHeight: 18 },

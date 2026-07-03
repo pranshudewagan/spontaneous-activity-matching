@@ -14,6 +14,7 @@ import { Swipeable, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActivityCard, type ActivityCardData } from '@/components/activity-card';
+import { AppWordmark } from '@/components/app-wordmark';
 import { ActivityDetailModal, type ActivityDetail } from '@/components/activity-detail-modal';
 import { EmptyHosting, EmptyJoined } from '@/components/empty-my-plans';
 import { ThemedText } from '@/components/themed-text';
@@ -178,7 +179,7 @@ export default function MyPlansScreen() {
     <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.line }]}>
-        <ThemedText type="title">My plans</ThemedText>
+        <AppWordmark />
         <Pressable
           style={[styles.postBtn, { backgroundColor: theme.action }]}
           onPress={() => router.push('/host')}
@@ -331,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two + 4,
+    height: 54,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   postBtn:     { borderRadius: 20, paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 2 },

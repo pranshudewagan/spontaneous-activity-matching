@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppWordmark } from '@/components/app-wordmark';
 import { EmptyDiscover } from '@/components/empty-discover';
 import { FilterSheet, DEFAULT_FILTERS, type Filters } from '@/components/filter-sheet';
 import { SwipeCard, type SwipeCardData, CARD_H, CARD_W } from '@/components/swipe-card';
@@ -184,7 +185,7 @@ export default function DiscoverScreen() {
     <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.line }]} onLayout={e => setHeaderH(e.nativeEvent.layout.height)}>
-        <ThemedText type="title">Discover</ThemedText>
+        <AppWordmark />
         <View style={styles.headerActions}>
           <Pressable onPress={handleUndo} hitSlop={8} disabled={!canUndo}>
             <Feather
@@ -263,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two + 4,
+    height: 54,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerActions: {
