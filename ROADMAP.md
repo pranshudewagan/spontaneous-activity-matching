@@ -42,11 +42,11 @@ b. `auto` mode. → ✓ right-swipe is accepted instantly, up to capacity.
 c. `manual` mode — host approve/reject queue. → ✓ requests sit pending; host accept and reject both work.
 d. `auto_criteria` mode. → ✓ requests that clear the criteria auto-accept; the rest go to the waitlist (not rejected), and the host can override-accept them.
 e. Capacity, waitlist & host override (remember `max` includes the host; every activity has a waitlist). → ✓ at capacity, further joins go to the waitlist; a freed seat auto-promotes the next *qualified* waitlister (not a criteria-fail); the host can override-accept anyone on the waitlist; waitlisted/pending users see only the public card — no chat or event-info; two simultaneous accepts can't exceed capacity.
-f. ← current Acceptance reversal. → ✓ host removes an accepted person → their seat frees, the waitlist promotes, the removed person loses chat/event access and can't re-request that activity.
+f. Acceptance reversal. → ✓ host removes an accepted person → their seat frees, the waitlist promotes, the removed person loses chat/event access and can't re-request that activity.
 g. Participant leaving. → ✓ a participant can leave any time (incl. after start); leaving before start frees their seat and promotes the next qualified waitlister; they lose chat/event access; they can re-request only before start — leaving after start is final.
 
 ## Phase 5 — Matched experience
-a. Event-info page: time, attendees, details — NO address or map. → ✓ accepted members see it; non-members cannot.
+a. ← current Event-info page: time, attendees, details — NO address or map. → ✓ accepted members see it; non-members cannot.
 b. Group chat via Supabase Realtime (in-app). → ✓ two accounts exchange messages live; only members can read/post.
 
 ## Phase 6 — Profile & lifecycle
