@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -83,6 +83,15 @@ export function ActivityDetailModal({ activity, onClose }: Props) {
         ) : (
           <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: theme.line }]} />
         )}
+
+        {/* Close button — floats over image */}
+        <Pressable
+          style={styles.closeBtn}
+          onPress={onClose}
+          hitSlop={8}
+        >
+          <Feather name="x" size={18} color="#fff" />
+        </Pressable>
 
         {/* Content card — fills rest of screen, overlaps image bottom */}
         <View style={[styles.content, { backgroundColor: theme.bg }]}>
@@ -179,6 +188,19 @@ const styles = StyleSheet.create({
   },
   imagePlaceholder: {
     opacity: 0.4,
+  },
+
+  closeBtn: {
+    position:       'absolute',
+    top:             Spacing.three,
+    left:            Spacing.three,
+    zIndex:          10,
+    width:           36,
+    height:          36,
+    borderRadius:    18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems:      'center',
+    justifyContent:  'center',
   },
 
   content: {
