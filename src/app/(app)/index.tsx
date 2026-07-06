@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Linking, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppWordmark } from '@/components/app-wordmark';
@@ -28,6 +28,7 @@ export default function DiscoverScreen() {
   const [appliedFilters,  setAppliedFilters]  = useState<Filters>(DEFAULT_FILTERS);
   const [headerH,        setHeaderH]        = useState(0);
   const [toastMsg,       setToastMsg]       = useState<string | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,7 +75,7 @@ export default function DiscoverScreen() {
 
   const initLocation = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') { setLoading(false); return; }
+    if (status !== 'granted') { setLocationDenied(true); setLoading(false); return; }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     const loc: PickedLocation = {
       latitude:  pos.coords.latitude,
@@ -200,8 +201,25 @@ export default function DiscoverScreen() {
         </View>
       </View>
 
+      {/* Location denied */}
+      {locationDenied && (
+        <View style={[styles.stackContainer, { backgroundColor: theme.bg }]}>
+          <Ionicons name="location-outline" size={48} color={theme.muted} />
+          <ThemedText style={[styles.deniedTitle, { color: theme.ink }]}>Location access needed</ThemedText>
+          <ThemedText style={[styles.deniedBody, { color: theme.muted }]}>
+            Enable location in Settings to see activities near you.
+          </ThemedText>
+          <Pressable
+            style={[styles.deniedBtn, { backgroundColor: theme.action }]}
+            onPress={() => Linking.openSettings()}
+          >
+            <ThemedText style={styles.deniedBtnText}>Open Settings</ThemedText>
+          </Pressable>
+        </View>
+      )}
+
       {/* Stack */}
-      <View style={[styles.stackContainer, { backgroundColor: theme.bg }]}>
+      {!locationDenied && <View style={[styles.stackContainer, { backgroundColor: theme.bg }]}>
         {/* Empty state always in the background once loaded — no pop-in after last swipe */}
         {!loading && <EmptyDiscover onWidenRadius={() => setSheetOpen(true)} />}
 
@@ -235,7 +253,7 @@ export default function DiscoverScreen() {
             <ActivityIndicator color={theme.accent} size="large" />
           </View>
         )}
-      </View>
+      </View>}
 
       {toastMsg !== null && (
         <Animated.View style={[styles.toast, { opacity: toastOpacity, backgroundColor: theme.accent }]}>
@@ -298,5 +316,29 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   toastText: { color: '#FFFFFF', fontSize: 14 },
+
+  deniedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: Spacing.three,
+    marginBottom: Spacing.one,
+  },
+  deniedBody: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.five,
+    lineHeight: 20,
+  },
+  deniedBtn: {
+    marginTop: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two + 2,
+    borderRadius: 20,
+  },
+  deniedBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 
 });
