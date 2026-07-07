@@ -201,9 +201,9 @@ export default function ActivityRequestsScreen() {
                 <View style={styles.summaryActions}>
                   <Pressable
                     style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}
-                    onPress={() => router.push(`/activity/${activity.id}`)}>
-                    <ThemedText type="label" style={{ color: theme.ink }}>Event info</ThemedText>
-                    <Feather name="users" size={13} color={theme.ink} />
+                    onPress={() => router.push({ pathname: `/chat/${activity.id}`, params: { title: activity.title, startTime: activity.start_time } })}>
+                    <ThemedText type="label" style={{ color: theme.ink }}>Chat</ThemedText>
+                    <Feather name="message-circle" size={13} color={theme.ink} />
                   </Pressable>
                   <Pressable
                     style={({ pressed }) => [styles.editBtn, { borderColor: theme.line, opacity: pressed ? 0.7 : 1 }]}

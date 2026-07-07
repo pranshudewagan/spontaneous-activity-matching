@@ -46,8 +46,8 @@ f. Acceptance reversal. → ✓ host removes an accepted person → their seat f
 g. Participant leaving. → ✓ a participant can leave any time (incl. after start); leaving before start frees their seat and promotes the next qualified waitlister; they lose chat/event access; they can re-request only before start — leaving after start is final.
 
 ## Phase 5 — Matched experience
-a. ← current Event-info page: time, attendees, details — NO address or map. → ✓ accepted members see it; non-members cannot.
-b. Group chat via Supabase Realtime (in-app). → ✓ two accounts exchange messages live; only members can read/post.
+a. Event-info page: time, attendees, details — NO address or map. → ✓ accepted members see it; non-members cannot.
+b. ← current Group chat via Supabase Realtime (in-app). → ✓ two accounts exchange messages live; only members can read/post.
 
 ## Phase 6 — Profile & lifecycle
 a. Public profile: photos, age, gender (man/woman/non-binary), name, bio, interest tags from the fixed list. → ✓ another user sees these fields and nothing more.

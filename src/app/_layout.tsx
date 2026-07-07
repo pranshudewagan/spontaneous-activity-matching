@@ -39,6 +39,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(app)" />
             <Stack.Screen name="activity/[id]" />
+            <Stack.Screen name="chat/[id]" />
             <Stack.Screen name="my-activity/[id]" />
             <Stack.Screen name="host" options={{ presentation: 'modal' }} />
             <Stack.Screen name="location-picker" options={{ presentation: 'fullScreenModal' }} />

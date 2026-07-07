@@ -210,7 +210,7 @@ export default function ActivityEventInfoScreen() {
         </View>
         <Pressable
           style={[styles.chatBtn, { backgroundColor: theme.action }]}
-          onPress={() => { /* Phase 5b */ }}
+          onPress={() => router.push({ pathname: `/chat/${id}`, params: { title: info.title, startTime: info.start_time } })}
         >
           <Ionicons name="chatbubbles-outline" size={18} color="#fff" />
           <ThemedText style={styles.chatBtnText}>Open Chat</ThemedText>
