@@ -381,7 +381,9 @@ export default function ChatScreen() {
       deleted_at:   null,
     };
     setMessages(prev => [optimistic, ...prev]);
-    scrollToBottom();
+    // Defer until the FlatList has rendered the new item, otherwise the scroll
+    // fires before the item exists and maintainVisibleContentPosition fights it.
+    requestAnimationFrame(() => requestAnimationFrame(scrollToBottom));
 
     const { data: inserted, error } = await supabase
       .from('messages')
@@ -536,6 +538,7 @@ export default function ChatScreen() {
           <FlatList
             ref={flatListRef}
             inverted
+            keyboardShouldPersistTaps="handled"
             data={listItems}
             keyExtractor={(item, index) =>
               item.type === 'message' ? item.msg.id : `ts-${index}`
