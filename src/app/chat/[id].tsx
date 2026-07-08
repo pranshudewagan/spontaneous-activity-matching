@@ -158,20 +158,28 @@ export default function ChatScreen() {
     : false;
 
   const keyboardOffset = useRef(new Animated.Value(0)).current;
-  const swipeX         = useRef(new Animated.Value(0)).current;
+  const swipeX       = useRef(new Animated.Value(0)).current;
+  // Clamp visually via interpolate so native driver can own the transform.
+  const swipeXClamped = useRef(
+    swipeX.interpolate({
+      inputRange:  [-SWIPE_REVEAL, 0],
+      outputRange: [-SWIPE_REVEAL, 0],
+      extrapolate: 'clamp',
+    })
+  ).current;
   const panResponder   = useRef(
     PanResponder.create({
       // Only claim clearly horizontal left-drags so vertical scroll still works.
       onMoveShouldSetPanResponder: (_, { dx, dy }) =>
         Math.abs(dx) > Math.abs(dy) * 2 && dx < -5,
       onPanResponderMove: (_, { dx }) => {
-        swipeX.setValue(Math.max(-SWIPE_REVEAL, Math.min(0, dx)));
+        swipeX.setValue(Math.min(0, dx));
       },
       onPanResponderRelease: () => {
-        Animated.spring(swipeX, { toValue: 0, tension: 80, friction: 10, useNativeDriver: false }).start();
+        Animated.spring(swipeX, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }).start();
       },
       onPanResponderTerminate: () => {
-        Animated.spring(swipeX, { toValue: 0, useNativeDriver: false }).start();
+        Animated.spring(swipeX, { toValue: 0, useNativeDriver: true }).start();
       },
     })
   ).current;
@@ -463,7 +471,7 @@ export default function ChatScreen() {
     if (item.type === 'timestamp') {
       return (
         <View style={styles.rowClip}>
-          <Animated.View style={{ width: '100%', transform: [{ translateX: swipeX }] }}>
+          <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
             <View style={styles.timestampRow}>
               <ThemedText style={[styles.timestampText, { color: theme.muted }]}>{item.label}</ThemedText>
             </View>
@@ -481,7 +489,7 @@ export default function ChatScreen() {
     if (msg.is_own) {
       return (
         <View style={styles.rowClip}>
-          <Animated.View style={{ width: '100%', transform: [{ translateX: swipeX }] }}>
+          <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
             <Pressable
               style={[styles.rowOwn, { marginBottom: mb }]}
               onLongPress={() => handleLongPress(msg)}
@@ -514,7 +522,7 @@ export default function ChatScreen() {
 
     return (
       <View style={styles.rowClip}>
-        <Animated.View style={{ width: '100%', transform: [{ translateX: swipeX }] }}>
+        <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
           <View style={[styles.rowOther, { marginBottom: mb }]}>
             {/* Avatar slot — always 32 px wide so bubbles stay aligned */}
             <View style={styles.avatarSlot}>
@@ -802,7 +810,7 @@ const styles = StyleSheet.create({
   },
   msgTimestampText: {
     fontSize:   11,
-    fontWeight: '500',
+    fontWeight: Platform.OS === 'android' ? '400' : '500',
   },
 
   emptyState: {
