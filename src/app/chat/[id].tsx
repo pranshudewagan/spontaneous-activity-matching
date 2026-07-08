@@ -94,6 +94,9 @@ type ListItem =
 const AVATAR_SIZE  = 32;
 const PAGE_SIZE    = 30;
 const SWIPE_REVEAL = 72; // px — how far left bubbles slide to reveal timestamps
+// Pixel heights of extra row content that push the timestamp away from the bubble center.
+const SENDER_NAME_OFFSET = 20; // senderName fontSize:12 (~16px) + marginBottom:1 + gap:3
+const EDITED_OFFSET      = 17; // editedLabel fontSize:11 (~14px) + gap:2-3
 
 function formatTimestamp(iso: string): string {
   const date    = new Date(iso);
@@ -487,6 +490,7 @@ export default function ChatScreen() {
     const msgTime = new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
     if (msg.is_own) {
+      const tsBottom = mb + (msg.edited_at && !msg.deleted_at ? EDITED_OFFSET : 0);
       return (
         <View style={styles.rowClip}>
           <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
@@ -512,7 +516,7 @@ export default function ChatScreen() {
                 )}
               </View>
             </Pressable>
-            <View style={[styles.msgTimestamp, { bottom: mb }]}>
+            <View style={[styles.msgTimestamp, { bottom: tsBottom }]}>
               <ThemedText style={[styles.msgTimestampText, { color: theme.muted }]}>{msgTime}</ThemedText>
             </View>
           </Animated.View>
@@ -520,6 +524,8 @@ export default function ChatScreen() {
       );
     }
 
+    const tsTop    = isOldestInGroup ? SENDER_NAME_OFFSET : 0;
+    const tsBottom = mb + (msg.edited_at && !msg.deleted_at ? EDITED_OFFSET : 0);
     return (
       <View style={styles.rowClip}>
         <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
@@ -550,7 +556,7 @@ export default function ChatScreen() {
               )}
             </View>
           </View>
-          <View style={[styles.msgTimestamp, { bottom: mb }]}>
+          <View style={[styles.msgTimestamp, { top: tsTop, bottom: tsBottom }]}>
             <ThemedText style={[styles.msgTimestampText, { color: theme.muted }]}>{msgTime}</ThemedText>
           </View>
         </Animated.View>
