@@ -379,6 +379,16 @@ export default function ChatScreen() {
             onScroll={handleScroll}
             scrollEventThrottle={100}
             maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <ThemedText style={[styles.emptyText, { color: theme.muted }]}>
+                  Be the first to say something
+                </ThemedText>
+                <ThemedText style={[styles.emptySubtext, { color: theme.muted }]}>
+                  Agree on where to meet here
+                </ThemedText>
+              </View>
+            }
             ListFooterComponent={
               loadingMore
                 ? <ActivityIndicator color={theme.muted} style={styles.loadMoreIndicator} />
@@ -552,6 +562,22 @@ const styles = StyleSheet.create({
   },
 
   loadMoreIndicator: { padding: Spacing.three },
+
+  emptyState: {
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.three * 3,
+    gap:             Spacing.one,
+  },
+  emptyText: {
+    fontSize:   15,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize:   13,
+    fontWeight: '400',
+  },
 
   readOnlyBar: {
     paddingTop:        Spacing.two,
