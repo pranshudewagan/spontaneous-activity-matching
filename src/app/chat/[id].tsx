@@ -9,6 +9,7 @@ import {
   type DimensionValue,
   FlatList,
   Keyboard,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -90,8 +91,9 @@ type ListItem =
   | { type: 'message';   msg: ChatMessage; isOldestInGroup: boolean; isNewestInGroup: boolean }
   | { type: 'timestamp'; label: string };
 
-const AVATAR_SIZE = 32;
-const PAGE_SIZE   = 30;
+const AVATAR_SIZE  = 32;
+const PAGE_SIZE    = 30;
+const SWIPE_REVEAL = 72; // px — how far left bubbles slide to reveal timestamps
 
 function formatTimestamp(iso: string): string {
   const date    = new Date(iso);
@@ -156,6 +158,24 @@ export default function ChatScreen() {
     : false;
 
   const keyboardOffset = useRef(new Animated.Value(0)).current;
+  const swipeX         = useRef(new Animated.Value(0)).current;
+  const panResponder   = useRef(
+    PanResponder.create({
+      // Only claim clearly horizontal left-drags so vertical scroll still works.
+      onMoveShouldSetPanResponder: (_, { dx, dy }) =>
+        Math.abs(dx) > Math.abs(dy) * 2 && dx < -5,
+      onPanResponderMove: (_, { dx }) => {
+        swipeX.setValue(Math.max(-SWIPE_REVEAL, Math.min(0, dx)));
+      },
+      onPanResponderRelease: () => {
+        Animated.spring(swipeX, { toValue: 0, tension: 80, friction: 10, useNativeDriver: false }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(swipeX, { toValue: 0, useNativeDriver: false }).start();
+      },
+    })
+  ).current;
+
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -442,8 +462,12 @@ export default function ChatScreen() {
   const renderItem = useCallback(({ item }: { item: ListItem }) => {
     if (item.type === 'timestamp') {
       return (
-        <View style={styles.timestampRow}>
-          <ThemedText style={[styles.timestampText, { color: theme.muted }]}>{item.label}</ThemedText>
+        <View style={styles.rowClip}>
+          <Animated.View style={{ width: '100%', transform: [{ translateX: swipeX }] }}>
+            <View style={styles.timestampRow}>
+              <ThemedText style={[styles.timestampText, { color: theme.muted }]}>{item.label}</ThemedText>
+            </View>
+          </Animated.View>
         </View>
       );
     }
@@ -452,64 +476,79 @@ export default function ChatScreen() {
     // In inverted FlatList, marginBottom of a component = visual space ABOVE the item's slot.
     // isOldestInGroup = visual top of group → add inter-group spacing above it.
     const mb = isOldestInGroup ? Spacing.two + 4 : 2;
+    const msgTime = new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
     if (msg.is_own) {
       return (
-        <Pressable
-          style={[styles.rowOwn, { marginBottom: mb }]}
-          onLongPress={() => handleLongPress(msg)}
-          delayLongPress={300}
-        >
-          <View style={styles.ownBubbleGroup}>
-            {msg.deleted_at ? (
-              <View style={[styles.bubbleOwn, styles.bubbleDeleted, { borderColor: theme.line }]}>
-                <ThemedText style={[styles.tombstoneText, { color: theme.muted }]}>This message was deleted</ThemedText>
-              </View>
-            ) : (
-              <>
-                <View style={[styles.bubbleOwn, { backgroundColor: theme.action }]}>
-                  <ThemedText style={styles.bubbleTextOwn}>{msg.body}</ThemedText>
-                </View>
-                {msg.edited_at && (
-                  <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
+        <View style={styles.rowClip}>
+          <Animated.View style={{ width: '100%', transform: [{ translateX: swipeX }] }}>
+            <Pressable
+              style={[styles.rowOwn, { marginBottom: mb }]}
+              onLongPress={() => handleLongPress(msg)}
+              delayLongPress={300}
+            >
+              <View style={styles.ownBubbleGroup}>
+                {msg.deleted_at ? (
+                  <View style={[styles.bubbleOwn, styles.bubbleDeleted, { borderColor: theme.line }]}>
+                    <ThemedText style={[styles.tombstoneText, { color: theme.muted }]}>This message was deleted</ThemedText>
+                  </View>
+                ) : (
+                  <>
+                    <View style={[styles.bubbleOwn, { backgroundColor: theme.action }]}>
+                      <ThemedText style={styles.bubbleTextOwn}>{msg.body}</ThemedText>
+                    </View>
+                    {msg.edited_at && (
+                      <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </View>
-        </Pressable>
+              </View>
+            </Pressable>
+            <View style={[styles.msgTimestamp, { bottom: mb }]}>
+              <ThemedText style={[styles.msgTimestampText, { color: theme.muted }]}>{msgTime}</ThemedText>
+            </View>
+          </Animated.View>
+        </View>
       );
     }
 
     return (
-      <View style={[styles.rowOther, { marginBottom: mb }]}>
-        {/* Avatar slot — always 32 px wide so bubbles stay aligned */}
-        <View style={styles.avatarSlot}>
-          {isNewestInGroup && <Avatar photo={msg.sender_photo} name={msg.sender_name} />}
-        </View>
-        <View style={styles.bubbleOtherWrapper}>
-          {isOldestInGroup && (
-            <ThemedText style={[styles.senderName, { color: theme.muted }]}>
-              {msg.sender_name}
-            </ThemedText>
-          )}
-          {msg.deleted_at ? (
-            <View style={[styles.bubbleOther, styles.bubbleDeleted, { borderColor: theme.line }]}>
-              <ThemedText style={[styles.tombstoneText, { color: theme.muted }]}>This message was deleted</ThemedText>
+      <View style={styles.rowClip}>
+        <Animated.View style={{ width: '100%', transform: [{ translateX: swipeX }] }}>
+          <View style={[styles.rowOther, { marginBottom: mb }]}>
+            {/* Avatar slot — always 32 px wide so bubbles stay aligned */}
+            <View style={styles.avatarSlot}>
+              {isNewestInGroup && <Avatar photo={msg.sender_photo} name={msg.sender_name} />}
             </View>
-          ) : (
-            <>
-              <View style={[styles.bubbleOther, { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText style={[styles.bubbleTextOther, { color: theme.ink }]}>{msg.body}</ThemedText>
-              </View>
-              {msg.edited_at && (
-                <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
+            <View style={styles.bubbleOtherWrapper}>
+              {isOldestInGroup && (
+                <ThemedText style={[styles.senderName, { color: theme.muted }]}>
+                  {msg.sender_name}
+                </ThemedText>
               )}
-            </>
-          )}
-        </View>
+              {msg.deleted_at ? (
+                <View style={[styles.bubbleOther, styles.bubbleDeleted, { borderColor: theme.line }]}>
+                  <ThemedText style={[styles.tombstoneText, { color: theme.muted }]}>This message was deleted</ThemedText>
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.bubbleOther, { backgroundColor: theme.backgroundElement }]}>
+                    <ThemedText style={[styles.bubbleTextOther, { color: theme.ink }]}>{msg.body}</ThemedText>
+                  </View>
+                  {msg.edited_at && (
+                    <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+          <View style={[styles.msgTimestamp, { bottom: mb }]}>
+            <ThemedText style={[styles.msgTimestampText, { color: theme.muted }]}>{msgTime}</ThemedText>
+          </View>
+        </Animated.View>
       </View>
     );
-  }, [theme]);
+  }, [theme, swipeX, handleLongPress]);
 
   if (loading) return <ChatSkeletonScreen title={title ?? 'Chat'} />;
 
@@ -534,7 +573,7 @@ export default function ChatScreen() {
       </View>
 
       <Animated.View style={[styles.flex, { paddingBottom: keyboardOffset }]}>
-        <View style={styles.flex}>
+        <View style={styles.flex} {...panResponder.panHandlers}>
           <FlatList
             ref={flatListRef}
             inverted
@@ -647,9 +686,12 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingHorizontal: Spacing.three,
-    paddingTop:        Spacing.three,
-    paddingBottom:     Spacing.two,
+    paddingTop:    Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+
+  rowClip: {
+    overflow: 'hidden',
   },
 
   newMsgPill: {
@@ -681,9 +723,10 @@ const styles = StyleSheet.create({
   },
 
   timestampRow: {
-    alignItems:    'center',
-    paddingVertical: Spacing.two,
-    marginBottom:  2,
+    alignItems:        'center',
+    paddingVertical:    Spacing.two,
+    paddingHorizontal:  Spacing.three,
+    marginBottom:       2,
   },
   timestampText: {
     fontSize:   12,
@@ -691,8 +734,9 @@ const styles = StyleSheet.create({
   },
 
   rowOwn: {
-    flexDirection:  'row',
-    justifyContent: 'flex-end',
+    flexDirection:     'row',
+    justifyContent:    'flex-end',
+    paddingHorizontal: Spacing.three,
   },
   ownBubbleGroup: {
     maxWidth:   '75%',
@@ -712,9 +756,10 @@ const styles = StyleSheet.create({
   },
 
   rowOther: {
-    flexDirection: 'row',
-    alignItems:    'flex-end',
-    gap:            Spacing.one + 2,
+    flexDirection:     'row',
+    alignItems:        'flex-end',
+    gap:                Spacing.one + 2,
+    paddingHorizontal:  Spacing.three,
   },
   avatarSlot: {
     width:  AVATAR_SIZE,
@@ -745,6 +790,20 @@ const styles = StyleSheet.create({
   },
 
   loadMoreIndicator: { padding: Spacing.three },
+
+  msgTimestamp: {
+    position:       'absolute',
+    right:          -SWIPE_REVEAL,
+    top:             0,
+    width:           SWIPE_REVEAL,
+    justifyContent: 'center',
+    alignItems:     'flex-start',
+    paddingLeft:     Spacing.two,
+  },
+  msgTimestampText: {
+    fontSize:   11,
+    fontWeight: '500',
+  },
 
   emptyState: {
     flex:           1,
