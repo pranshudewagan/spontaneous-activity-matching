@@ -415,7 +415,7 @@ export default function ChatScreen() {
         {isReadOnly ? (
           <View style={[styles.readOnlyBar, { borderTopColor: theme.line, paddingBottom: insets.bottom + Spacing.two }]}>
             <ThemedText style={[styles.readOnlyText, { color: theme.muted }]}>
-              Chat closed · 24 hours after activity start
+              Chat closed · the activity has ended
             </ThemedText>
           </View>
         ) : (
