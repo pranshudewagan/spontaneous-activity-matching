@@ -103,9 +103,10 @@ export default function ActivityEventInfoScreen() {
   const theme    = Colors.light;
   const insets   = useSafeAreaInsets();
 
-  const [info,    setInfo]    = useState<EventInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(false);
+  const [info,       setInfo]       = useState<EventInfo | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -153,8 +154,8 @@ export default function ActivityEventInfoScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}>
         {/* Image */}
-        {info.image_url ? (
-          <Image source={{ uri: info.image_url }} style={styles.image} contentFit="cover" />
+        {info.image_url && !imageError ? (
+          <Image source={{ uri: info.image_url }} style={styles.image} contentFit="cover" onError={() => setImageError(true)} />
         ) : (
           <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: theme.line }]} />
         )}
