@@ -3,8 +3,8 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   ActivityIndicator,
+  Animated,
   FlatList,
   Keyboard,
   Platform,
@@ -96,18 +96,21 @@ export default function ChatScreen() {
   const keyboardOffset = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const show = Keyboard.addListener('keyboardWillShow', (e) => {
+    const isIOS = Platform.OS === 'ios';
+    const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = isIOS ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const show = Keyboard.addListener(showEvent, (e) => {
       Animated.timing(keyboardOffset, {
         toValue: e.endCoordinates.height,
-        duration: e.duration / 2,
+        duration: isIOS ? e.duration / 2 : 150,
         useNativeDriver: false,
       }).start();
     });
-    const hide = Keyboard.addListener('keyboardWillHide', (e) => {
+    const hide = Keyboard.addListener(hideEvent, (e) => {
       Animated.timing(keyboardOffset, {
         toValue: 0,
-        duration: e.duration / 2,
+        duration: isIOS ? e.duration / 2 : 150,
         useNativeDriver: false,
       }).start();
     });
@@ -372,7 +375,7 @@ export default function ChatScreen() {
           <View style={[styles.inputBar, { borderTopColor: theme.line, paddingBottom: insets.bottom + Spacing.one, backgroundColor: theme.bg }]}>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.ink }]}
-              placeholder="Message..."
+              placeholder="Faciliate..."
               placeholderTextColor={theme.muted}
               value={inputText}
               onChangeText={setInputText}
