@@ -432,7 +432,7 @@ export default function ChatScreen() {
       const gapMs = older
         ? new Date(msg.created_at).getTime() - new Date(older.created_at).getTime()
         : Infinity;
-      if (gapMs > 5 * 60 * 1000) {
+      if (gapMs > 60 * 60 * 1000) {
         items.push({ type: 'timestamp', label: formatTimestamp(msg.created_at) });
       }
     }
