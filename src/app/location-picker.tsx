@@ -117,10 +117,9 @@ export default function LocationPickerScreen() {
       const [r] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
       if (!r) return;
       const neighborhood = r.district ?? null;
-      const county       = r.subregion ?? null;
       const city         = r.city ?? null;
       const state        = r.region ? (STATE_ABBR[r.region] ?? r.region) : null;
-      const label = [neighborhood, county, city, state].filter(Boolean).join(', ');
+      const label = [neighborhood, city, state].filter(Boolean).join(', ');
       setAreaLabel(label || 'Selected area');
     } catch {
       setAreaLabel('Selected area');
