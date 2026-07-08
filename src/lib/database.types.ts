@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -83,15 +84,7 @@ export type Database = {
           time_flexible?: boolean
           title?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "activities_host_id_fkey"
-            columns: ["host_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       join_requests: {
         Row: {
@@ -129,13 +122,6 @@ export type Database = {
             referencedRelation: "activities"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "join_requests_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       messages: {
@@ -143,6 +129,8 @@ export type Database = {
           activity_id: string
           body: string
           created_at: string
+          deleted_at: string | null
+          edited_at: string | null
           id: string
           sender_id: string
         }
@@ -150,6 +138,8 @@ export type Database = {
           activity_id: string
           body: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           sender_id: string
         }
@@ -157,6 +147,8 @@ export type Database = {
           activity_id?: string
           body?: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           sender_id?: string
         }
@@ -166,13 +158,6 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -449,6 +434,7 @@ export type Database = {
             }
             Returns: string
           }
+      delete_message: { Args: { p_message_id: string }; Returns: undefined }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -480,6 +466,10 @@ export type Database = {
           }
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
+      edit_message: {
+        Args: { p_message_id: string; p_new_body: string }
+        Returns: undefined
+      }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       geometry: { Args: { "": string }; Returns: unknown }
@@ -589,6 +579,24 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_activity_event_info: {
+        Args: { p_activity_id: string }
+        Returns: Json
+      }
+      get_chat_messages: {
+        Args: { p_activity_id: string; p_before?: string; p_limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          deleted_at: string
+          edited_at: string
+          id: string
+          is_own: boolean
+          sender_id: string
+          sender_name: string
+          sender_photo: string
+        }[]
+      }
       get_join_requests_for_activity: {
         Args: { p_activity_id: string }
         Returns: {
@@ -612,10 +620,7 @@ export type Database = {
         Args: { p_activity: string; p_user: string }
         Returns: boolean
       }
-      is_activity_member: {
-        Args: { p_activity: string; p_user: string }
-        Returns: boolean
-      }
+      is_activity_member: { Args: { p_activity: string }; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
       my_hosted_activities: {
         Args: { p_lat: number; p_lng: number }

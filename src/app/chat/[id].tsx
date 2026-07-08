@@ -76,12 +76,14 @@ function ChatSkeletonScreen({ title }: { title: string }) {
 
 type ChatMessage = {
   id:           string;
-  body:         string;
+  body:         string | null;  // null when deleted
   created_at:   string;
   sender_id:    string;
   sender_name:  string;
   sender_photo: string | null;
   is_own:       boolean;
+  edited_at:    string | null;
+  deleted_at:   string | null;
 };
 
 type ListItem =
@@ -138,8 +140,9 @@ export default function ChatScreen() {
   const [loadingMore,  setLoadingMore]  = useState(false);
   const [hasMore,      setHasMore]      = useState(true);
   const [inputText,    setInputText]    = useState('');
-  const [sending,      setSending]      = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [sending,        setSending]        = useState(false);
+  const [currentUserId,  setCurrentUserId]  = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
 
   const seenIds       = useRef<Set<string>>(new Set());
   const senderCache   = useRef<Record<string, { name: string; photo: string | null }>>({});
@@ -211,6 +214,23 @@ export default function ChatScreen() {
       .channel(`chat-${id}`)
       .on(
         'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `activity_id=eq.${id}` },
+        (payload) => {
+          const raw = payload.new as Record<string, unknown>;
+          setMessages(prev => prev.map(m =>
+            m.id === (raw.id as string)
+              ? {
+                  ...m,
+                  body:       (raw.deleted_at ? null : raw.body) as string | null,
+                  edited_at:  (raw.edited_at  as string | null) ?? null,
+                  deleted_at: (raw.deleted_at as string | null) ?? null,
+                }
+              : m
+          ));
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `activity_id=eq.${id}` },
         async (payload) => {
           const raw = payload.new as Record<string, unknown>;
@@ -242,6 +262,8 @@ export default function ChatScreen() {
             sender_name:  sender.name,
             sender_photo: sender.photo,
             is_own:       senderId === user?.id,
+            edited_at:    null,
+            deleted_at:   null,
           };
           setMessages(prev => [msg, ...prev]);
           if (!isNearBottom.current) setNewMessageCount(n => n + 1);
@@ -272,9 +294,77 @@ export default function ChatScreen() {
     setLoadingMore(false);
   }, [loadingMore, hasMore, messages, loadMessages]);
 
+  const cancelEdit = useCallback(() => {
+    setEditingMessage(null);
+    setInputText('');
+  }, []);
+
+  const handleLongPress = useCallback((msg: ChatMessage) => {
+    if (!msg.is_own || msg.deleted_at || isReadOnly) return;
+    Alert.alert(
+      'Message options',
+      undefined,
+      [
+        {
+          text: 'Edit',
+          onPress: () => {
+            setEditingMessage(msg);
+            setInputText(msg.body ?? '');
+          },
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Delete message?', 'This cannot be undone.', [
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                  const snapshot = msg;
+                  setMessages(prev => prev.map(m =>
+                    m.id === snapshot.id ? { ...m, body: null, deleted_at: new Date().toISOString() } : m
+                  ));
+                  const { error } = await supabase.rpc('delete_message', { p_message_id: snapshot.id });
+                  if (error) {
+                    setMessages(prev => prev.map(m => m.id === snapshot.id ? snapshot : m));
+                    Alert.alert('Delete failed', 'Could not delete the message.');
+                  }
+                },
+              },
+              { text: 'Cancel', style: 'cancel' },
+            ]);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }, [isReadOnly]);
+
   const sendMessage = useCallback(async () => {
     const body = inputText.trim();
     if (!body || !currentUserId || sending) return;
+
+    if (editingMessage) {
+      const target = editingMessage;
+      setSending(true);
+      setMessages(prev => prev.map(m =>
+        m.id === target.id ? { ...m, body, edited_at: new Date().toISOString() } : m
+      ));
+      setInputText('');
+      setEditingMessage(null);
+
+      const { error } = await supabase.rpc('edit_message', { p_message_id: target.id, p_new_body: body });
+      if (error) {
+        setMessages(prev => prev.map(m => m.id === target.id ? target : m));
+        setInputText(body);
+        setEditingMessage(target);
+        Alert.alert('Edit failed', 'Could not save the edit. Your changes have been restored.');
+      }
+      setSending(false);
+      return;
+    }
+
     setInputText('');
     setSending(true);
 
@@ -287,6 +377,8 @@ export default function ChatScreen() {
       sender_name:  'You',
       sender_photo: null,
       is_own:       true,
+      edited_at:    null,
+      deleted_at:   null,
     };
     setMessages(prev => [optimistic, ...prev]);
     scrollToBottom();
@@ -314,7 +406,7 @@ export default function ChatScreen() {
       )
     );
     setSending(false);
-  }, [inputText, currentUserId, id, sending]);
+  }, [inputText, currentUserId, id, sending, editingMessage]);
 
   // Build flat list mixing message items and timestamp separators.
   // Data is newest-first (matches inverted FlatList).
@@ -361,11 +453,28 @@ export default function ChatScreen() {
 
     if (msg.is_own) {
       return (
-        <View style={[styles.rowOwn, { marginBottom: mb }]}>
-          <View style={[styles.bubbleOwn, { backgroundColor: theme.action }]}>
-            <ThemedText style={styles.bubbleTextOwn}>{msg.body}</ThemedText>
+        <Pressable
+          style={[styles.rowOwn, { marginBottom: mb }]}
+          onLongPress={() => handleLongPress(msg)}
+          delayLongPress={300}
+        >
+          <View style={styles.ownBubbleGroup}>
+            {msg.deleted_at ? (
+              <View style={[styles.bubbleOwn, styles.bubbleDeleted, { borderColor: theme.line }]}>
+                <ThemedText style={[styles.tombstoneText, { color: theme.muted }]}>This message was deleted</ThemedText>
+              </View>
+            ) : (
+              <>
+                <View style={[styles.bubbleOwn, { backgroundColor: theme.action }]}>
+                  <ThemedText style={styles.bubbleTextOwn}>{msg.body}</ThemedText>
+                </View>
+                {msg.edited_at && (
+                  <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
+                )}
+              </>
+            )}
           </View>
-        </View>
+        </Pressable>
       );
     }
 
@@ -381,9 +490,20 @@ export default function ChatScreen() {
               {msg.sender_name}
             </ThemedText>
           )}
-          <View style={[styles.bubbleOther, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText style={[styles.bubbleTextOther, { color: theme.ink }]}>{msg.body}</ThemedText>
-          </View>
+          {msg.deleted_at ? (
+            <View style={[styles.bubbleOther, styles.bubbleDeleted, { borderColor: theme.line }]}>
+              <ThemedText style={[styles.tombstoneText, { color: theme.muted }]}>This message was deleted</ThemedText>
+            </View>
+          ) : (
+            <>
+              <View style={[styles.bubbleOther, { backgroundColor: theme.backgroundElement }]}>
+                <ThemedText style={[styles.bubbleTextOther, { color: theme.ink }]}>{msg.body}</ThemedText>
+              </View>
+              {msg.edited_at && (
+                <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
+              )}
+            </>
+          )}
         </View>
       </View>
     );
@@ -459,6 +579,16 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         </View>
+
+        {editingMessage && (
+          <View style={[styles.editingBanner, { borderTopColor: theme.line, borderBottomColor: theme.line, backgroundColor: theme.backgroundElement }]}>
+            <Feather name="edit-2" size={13} color={theme.accent} />
+            <ThemedText style={[styles.editingBannerText, { color: theme.ink }]}>Editing message</ThemedText>
+            <Pressable onPress={cancelEdit} hitSlop={8}>
+              <Feather name="x" size={16} color={theme.muted} />
+            </Pressable>
+          </View>
+        )}
 
         {isReadOnly ? (
           <View style={[styles.readOnlyBar, { borderTopColor: theme.line, paddingBottom: insets.bottom + Spacing.two }]}>
@@ -561,12 +691,16 @@ const styles = StyleSheet.create({
     flexDirection:  'row',
     justifyContent: 'flex-end',
   },
+  ownBubbleGroup: {
+    maxWidth:   '75%',
+    alignItems: 'flex-end',
+    gap:         2,
+  },
   bubbleOwn: {
-    maxWidth:            '75%',
-    borderRadius:         18,
-    borderBottomRightRadius: 4,
-    paddingHorizontal:   Spacing.three,
-    paddingVertical:     Spacing.two,
+    borderRadius:            18,
+    borderBottomRightRadius:  4,
+    paddingHorizontal:        Spacing.three,
+    paddingVertical:          Spacing.two,
   },
   bubbleTextOwn: {
     color:      '#fff',
@@ -623,6 +757,34 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize:   13,
     fontWeight: '400',
+  },
+
+  editingBanner: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:                Spacing.one + 2,
+    paddingHorizontal:  Spacing.three,
+    paddingVertical:    Spacing.one + 4,
+    borderTopWidth:     StyleSheet.hairlineWidth,
+    borderBottomWidth:  StyleSheet.hairlineWidth,
+  },
+  editingBannerText: {
+    flex:       1,
+    fontSize:   13,
+    fontWeight: '600',
+  },
+
+  bubbleDeleted: {
+    backgroundColor: 'transparent',
+    borderWidth:      1,
+  },
+  tombstoneText: {
+    fontSize:    14,
+    fontStyle:  'italic',
+  },
+  editedLabel: {
+    fontSize:   11,
+    fontWeight: '500',
   },
 
   readOnlyBar: {
