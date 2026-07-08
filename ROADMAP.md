@@ -47,7 +47,7 @@ g. Participant leaving. → ✓ a participant can leave any time (incl. after st
 
 ## Phase 5 — Matched experience
 a. Event-info page: time, attendees, details — NO address or map. → ✓ accepted members see it; non-members cannot.
-b. ← current Group chat via Supabase Realtime (in-app). → ✓ two accounts exchange messages live; only members can read/post.
+b. Group chat via Supabase Realtime (in-app). → ✓ two accounts exchange messages live; only members can read/post. ← current 
 
 ## Phase 6 — Profile & lifecycle
 a. Public profile: photos, age, gender (man/woman/non-binary), name, bio, interest tags from the fixed list. → ✓ another user sees these fields and nothing more.

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   FlatList,
   Keyboard,
@@ -243,9 +244,10 @@ export default function ChatScreen() {
       .single();
 
     if (error) {
-      console.error('send failed:', error);
       setMessages(prev => prev.filter(m => m.id !== tempId));
+      setInputText(body);
       setSending(false);
+      Alert.alert('Message not sent', 'Something went wrong. Your message has been restored — tap send to try again.');
       return;
     }
 
@@ -410,7 +412,7 @@ export default function ChatScreen() {
           <View style={[styles.inputBar, { borderTopColor: theme.line, paddingBottom: insets.bottom + Spacing.one, backgroundColor: theme.bg }]}>
             <TextInput
               style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.ink }]}
-              placeholder="Faciliate..."
+              placeholder="Facilitate..."
               placeholderTextColor={theme.muted}
               value={inputText}
               onChangeText={setInputText}
