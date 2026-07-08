@@ -98,7 +98,7 @@ function AttendeeRow({ attendee, isHost }: { attendee: Attendee; isHost: boolean
 }
 
 export default function ActivityEventInfoScreen() {
-  const { id }   = useLocalSearchParams<{ id: string }>();
+  const { id, fromChat } = useLocalSearchParams<{ id: string; fromChat?: string }>();
   const router   = useRouter();
   const theme    = Colors.light;
   const insets   = useSafeAreaInsets();
@@ -210,7 +210,7 @@ export default function ActivityEventInfoScreen() {
         </View>
         <Pressable
           style={[styles.chatBtn, { backgroundColor: theme.action }]}
-          onPress={() => router.push({ pathname: `/chat/${id}`, params: { title: info.title, startTime: info.start_time } })}
+          onPress={() => fromChat ? router.back() : router.push({ pathname: '/chat/[id]', params: { id, title: info.title, startTime: info.start_time } })}
         >
           <Ionicons name="chatbubbles-outline" size={18} color="#fff" />
           <ThemedText style={styles.chatBtnText}>Open Chat</ThemedText>

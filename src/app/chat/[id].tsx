@@ -354,7 +354,7 @@ export default function ChatScreen() {
         </ThemedText>
         <Pressable
           style={styles.headerSide}
-          onPress={() => router.push({ pathname: '/activity/[id]', params: { id, title, startTime } })}
+          onPress={() => router.push({ pathname: '/activity/[id]', params: { id, title, startTime, fromChat: '1' } })}
           hitSlop={8}
         >
           <Feather name="users" size={20} color={theme.ink} />
