@@ -3,9 +3,10 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  ActivityIndicator, // used for load-more spinner
   Alert,
   Animated,
+  type DimensionValue,
   FlatList,
   Keyboard,
   Platform,
@@ -19,6 +20,59 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+
+const SKELETON_BUBBLES: Array<{ own: boolean; width: DimensionValue }> = [
+  { own: false, width: '58%' },
+  { own: true,  width: '42%' },
+  { own: false, width: '70%' },
+  { own: false, width: '45%' },
+  { own: true,  width: '60%' },
+  { own: true,  width: '35%' },
+];
+
+function ChatSkeletonScreen({ title }: { title: string }) {
+  const theme  = Colors.light;
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pulse  = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1,   duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
+
+  return (
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      <View style={[styles.header, { paddingTop: insets.top, borderBottomColor: theme.line }]}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.headerSide}>
+          <Feather name="arrow-left" size={22} color={theme.ink} />
+        </Pressable>
+        <ThemedText style={[styles.headerTitle, { color: theme.ink }]} numberOfLines={1}>
+          {title}
+        </ThemedText>
+        <View style={styles.headerSide} />
+      </View>
+      <Animated.View style={{ flex: 1, opacity: pulse, paddingHorizontal: Spacing.three, paddingTop: Spacing.three }}>
+        {SKELETON_BUBBLES.map((b, i) => (
+          <View key={i} style={{ flexDirection: 'row', justifyContent: b.own ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8, marginBottom: 8 }}>
+            {!b.own && <View style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: theme.line }} />}
+            <View style={{ width: b.width, height: 40, borderRadius: 18, backgroundColor: theme.line }} />
+          </View>
+        ))}
+      </Animated.View>
+      <View style={[styles.inputBar, { borderTopColor: theme.line, paddingBottom: insets.bottom + Spacing.one, backgroundColor: theme.bg }]}>
+        <View style={{ flex: 1, height: 40, borderRadius: 20, backgroundColor: theme.backgroundElement }} />
+        <View style={[styles.sendBtn, { backgroundColor: theme.line }]} />
+      </View>
+    </View>
+  );
+}
 
 type ChatMessage = {
   id:           string;
@@ -335,13 +389,7 @@ export default function ChatScreen() {
     );
   }, [theme]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loadingRoot, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
-        <ActivityIndicator color={theme.action} />
-      </View>
-    );
-  }
+  if (loading) return <ChatSkeletonScreen title={title ?? 'Chat'} />;
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
@@ -450,8 +498,6 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   root:        { flex: 1 },
   flex:        { flex: 1 },
-  loadingRoot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
   header: {
     flexDirection:    'row',
     alignItems:       'center',
