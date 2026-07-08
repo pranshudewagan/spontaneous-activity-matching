@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import * as Haptics from 'expo-haptics';
+
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -332,6 +334,7 @@ export default function ChatScreen() {
 
   const handleLongPress = useCallback((msg: ChatMessage) => {
     if (!msg.is_own || msg.deleted_at || isReadOnly) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Message options',
       undefined,
