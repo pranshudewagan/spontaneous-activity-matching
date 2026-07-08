@@ -542,6 +542,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
     paddingHorizontal:   Spacing.three,
     paddingVertical:     Spacing.two,
+    alignSelf:           'flex-start',
   },
   bubbleTextOther: {
     fontSize:   15,
