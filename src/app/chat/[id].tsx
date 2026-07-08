@@ -3,9 +3,10 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -91,6 +92,27 @@ export default function ChatScreen() {
   const isReadOnly = startTime
     ? new Date(startTime).getTime() + 24 * 60 * 60 * 1000 < Date.now()
     : false;
+
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const show = Keyboard.addListener('keyboardWillShow', (e) => {
+      Animated.timing(keyboardOffset, {
+        toValue: e.endCoordinates.height,
+        duration: e.duration / 2,
+        useNativeDriver: false,
+      }).start();
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', (e) => {
+      Animated.timing(keyboardOffset, {
+        toValue: 0,
+        duration: e.duration / 2,
+        useNativeDriver: false,
+      }).start();
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, [keyboardOffset]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
@@ -321,11 +343,7 @@ export default function ChatScreen() {
         </Pressable>
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 54 : 0}
-      >
+      <Animated.View style={[styles.flex, { paddingBottom: keyboardOffset }]}>
         <FlatList
           inverted
           data={listItems}
@@ -373,7 +391,7 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         )}
-      </KeyboardAvoidingView>
+      </Animated.View>
 
     </View>
   );
