@@ -86,8 +86,12 @@ export default function ChatScreen() {
   const [sending,      setSending]      = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const seenIds     = useRef<Set<string>>(new Set());
-  const senderCache = useRef<Record<string, { name: string; photo: string | null }>>({});
+  const seenIds       = useRef<Set<string>>(new Set());
+  const senderCache   = useRef<Record<string, { name: string; photo: string | null }>>({});
+  const flatListRef   = useRef<FlatList>(null);
+  const isNearBottom  = useRef(true);
+
+  const [newMessageCount, setNewMessageCount] = useState(0);
 
   const isReadOnly = startTime
     ? new Date(startTime).getTime() + 24 * 60 * 60 * 1000 < Date.now()
@@ -96,21 +100,18 @@ export default function ChatScreen() {
   const keyboardOffset = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const isIOS = Platform.OS === 'ios';
-    const showEvent = isIOS ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = isIOS ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const show = Keyboard.addListener(showEvent, (e) => {
+    if (Platform.OS !== 'ios') return;
+    const show = Keyboard.addListener('keyboardWillShow', (e) => {
       Animated.timing(keyboardOffset, {
         toValue: e.endCoordinates.height,
-        duration: isIOS ? e.duration / 2 : 150,
+        duration: e.duration / 2,
         useNativeDriver: false,
       }).start();
     });
-    const hide = Keyboard.addListener(hideEvent, (e) => {
+    const hide = Keyboard.addListener('keyboardWillHide', (e) => {
       Animated.timing(keyboardOffset, {
         toValue: 0,
-        duration: isIOS ? e.duration / 2 : 150,
+        duration: e.duration / 2,
         useNativeDriver: false,
       }).start();
     });
@@ -188,12 +189,25 @@ export default function ChatScreen() {
             is_own:       senderId === user?.id,
           };
           setMessages(prev => [msg, ...prev]);
+          if (!isNearBottom.current) setNewMessageCount(n => n + 1);
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [id]);
+
+  const scrollToBottom = useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setNewMessageCount(0);
+  }, []);
+
+  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const near = y < 80;
+    if (near && !isNearBottom.current) setNewMessageCount(0);
+    isNearBottom.current = near;
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -220,6 +234,7 @@ export default function ChatScreen() {
       is_own:       true,
     };
     setMessages(prev => [optimistic, ...prev]);
+    scrollToBottom();
 
     const { data: inserted, error } = await supabase
       .from('messages')
@@ -347,23 +362,43 @@ export default function ChatScreen() {
       </View>
 
       <Animated.View style={[styles.flex, { paddingBottom: keyboardOffset }]}>
-        <FlatList
-          inverted
-          data={listItems}
-          keyExtractor={(item, index) =>
-            item.type === 'message' ? item.msg.id : `ts-${index}`
-          }
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.4}
-          ListFooterComponent={
-            loadingMore
-              ? <ActivityIndicator color={theme.muted} style={styles.loadMoreIndicator} />
-              : null
-          }
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.flex}>
+          <FlatList
+            ref={flatListRef}
+            inverted
+            data={listItems}
+            keyExtractor={(item, index) =>
+              item.type === 'message' ? item.msg.id : `ts-${index}`
+            }
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.4}
+            onScroll={handleScroll}
+            scrollEventThrottle={100}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            ListFooterComponent={
+              loadingMore
+                ? <ActivityIndicator color={theme.muted} style={styles.loadMoreIndicator} />
+                : null
+            }
+            showsVerticalScrollIndicator={false}
+          />
+          <View
+            style={[styles.newMsgPill, { opacity: newMessageCount > 0 ? 1 : 0 }]}
+            pointerEvents={newMessageCount > 0 ? 'auto' : 'none'}
+          >
+            <Pressable style={styles.newMsgPillInner} onPress={scrollToBottom}>
+              <Feather name="chevron-down" size={13} color="#fff" />
+              <ThemedText style={styles.newMsgText}>
+                {newMessageCount === 1 ? '1 new message' : `${newMessageCount} new messages`}
+              </ThemedText>
+            </Pressable>
+            <Pressable onPress={() => setNewMessageCount(0)} hitSlop={8} style={styles.newMsgDismiss}>
+              <Feather name="x" size={13} color="rgba(255,255,255,0.7)" />
+            </Pressable>
+          </View>
+        </View>
 
         {isReadOnly ? (
           <View style={[styles.readOnlyBar, { borderTopColor: theme.line, paddingBottom: insets.bottom + Spacing.two }]}>
@@ -424,6 +459,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingTop:        Spacing.three,
     paddingBottom:     Spacing.two,
+  },
+
+  newMsgPill: {
+    position:          'absolute',
+    bottom:             Spacing.two,
+    alignSelf:         'center',
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   'rgba(0,0,0,0.72)',
+    borderRadius:       20,
+    overflow:          'hidden',
+  },
+  newMsgPillInner: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:                4,
+    paddingLeft:        Spacing.two,
+    paddingRight:       Spacing.one + 2,
+    paddingVertical:    Spacing.one + 2,
+  },
+  newMsgText: {
+    color:      '#fff',
+    fontSize:   12,
+    fontWeight: '600',
+  },
+  newMsgDismiss: {
+    paddingHorizontal: Spacing.one + 2,
+    paddingVertical:   Spacing.one + 2,
   },
 
   timestampRow: {
