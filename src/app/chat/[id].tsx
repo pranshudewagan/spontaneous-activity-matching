@@ -105,9 +105,9 @@ const SWIPE_REVEAL   = 72; // px — how far left bubbles slide to reveal timest
 const SCREEN_HEIGHT  = Dimensions.get('window').height;
 const MENU_WIDTH     = 184;
 const MENU_ITEM_H    = 44; // approximate menu row height (padding + text)
-const CARD_HEIGHT_1  = MENU_ITEM_H;                 // Copy only (received messages)
-const CARD_HEIGHT_3  = MENU_ITEM_H * 3 + 2;         // Copy + Edit + Delete (own)
+const cardHeightFor  = (items: number) => MENU_ITEM_H * items + Math.max(0, items - 1);
 const MENU_GAP       = 8;   // gap between bubble bottom and card top
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const STRIP_HEIGHT   = 48;  // reactions strip pill height
 const STRIP_CARD_GAP = 6;   // gap between reactions strip and menu card
 const QUICK_EMOJIS   = ['❤️', '👍', '👎', '😂', '‼️', '❓'];
@@ -532,7 +532,11 @@ export default function ChatScreen() {
       const availBottom  = (rawKbH > 0 ? SCREEN_HEIGHT - rawKbH : SCREEN_HEIGHT - insets.bottom)
         - INPUT_BAR_H - MENU_GAP;
 
-      const cardHeight   = msg.is_own ? CARD_HEIGHT_3 : CARD_HEIGHT_1;
+      // Copy is always shown; Edit only within EDIT_WINDOW_MS of send; Delete
+      // for any own message while the chat is open.
+      const withinEditWindow = Date.now() - new Date(msg.created_at).getTime() < EDIT_WINDOW_MS;
+      const itemCount   = msg.is_own ? (withinEditWindow ? 3 : 2) : 1;
+      const cardHeight  = cardHeightFor(itemCount);
       const totalHeight  = STRIP_HEIGHT + STRIP_CARD_GAP + cardHeight;
       const minTop       = insets.top + 60;
       // Own messages default to BELOW the bubble (thumb comes from the input bar).
@@ -953,19 +957,23 @@ export default function ChatScreen() {
               </Pressable>
               {menuMessage.is_own && (
                 <>
-                  <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
-                  {/* Edit */}
-                  <Pressable
-                    style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
-                    onPress={() => {
-                      setEditingMessage(menuMessage);
-                      setInputText(menuMessage.body ?? '');
-                      dismissMenu();
-                    }}
-                  >
-                    <Feather name="edit-2" size={16} color={theme.ink} />
-                    <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Edit</ThemedText>
-                  </Pressable>
+                  {Date.now() - new Date(menuMessage.created_at).getTime() < EDIT_WINDOW_MS && (
+                    <>
+                      <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
+                      {/* Edit */}
+                      <Pressable
+                        style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                        onPress={() => {
+                          setEditingMessage(menuMessage);
+                          setInputText(menuMessage.body ?? '');
+                          dismissMenu();
+                        }}
+                      >
+                        <Feather name="edit-2" size={16} color={theme.ink} />
+                        <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Edit</ThemedText>
+                      </Pressable>
+                    </>
+                  )}
                   <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
                   {/* Delete */}
                   <Pressable
