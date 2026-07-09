@@ -221,7 +221,7 @@ export default function ChatScreen() {
     if (Platform.OS !== 'ios') return;
     const show = Keyboard.addListener('keyboardWillShow', (e) => {
       Animated.timing(keyboardOffset, {
-        toValue: e.endCoordinates.height,
+        toValue: Math.max(0, e.endCoordinates.height - insets.bottom),
         duration: e.duration / 2,
         useNativeDriver: false,
       }).start();
@@ -234,7 +234,7 @@ export default function ChatScreen() {
       }).start();
     });
     return () => { show.remove(); hide.remove(); };
-  }, [keyboardOffset]);
+  }, [keyboardOffset, insets.bottom]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
