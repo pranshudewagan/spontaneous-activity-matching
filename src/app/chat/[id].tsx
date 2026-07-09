@@ -100,6 +100,10 @@ const PAGE_SIZE    = 30;
 const SWIPE_REVEAL   = 72; // px — how far left bubbles slide to reveal timestamps
 const SCREEN_HEIGHT  = Dimensions.get('window').height;
 const MENU_WIDTH     = 184;
+const MENU_ITEM_H    = 44; // approximate menu row height (padding + text)
+const CARD_HEIGHT_1  = MENU_ITEM_H;                 // Copy only (received messages)
+const CARD_HEIGHT_3  = MENU_ITEM_H * 3 + 2;         // Copy + Edit + Delete (own)
+const MENU_GAP       = 8;   // gap between bubble bottom and card top
 // Pixel heights of extra row content that push the timestamp away from the bubble center.
 const SENDER_NAME_OFFSET = 20; // senderName fontSize:12 (~16px) + marginBottom:1 + gap:3
 const EDITED_OFFSET      = 17; // editedLabel fontSize:11 (~14px) + gap:2-3
@@ -167,6 +171,8 @@ export default function ChatScreen() {
   const senderCache   = useRef<Record<string, { name: string; photo: string | null }>>({});
   const flatListRef   = useRef<FlatList>(null);
   const isNearBottom  = useRef(true);
+  const bubbleRefs           = useRef<Map<string, View | null>>(new Map());
+  const rawKeyboardHeightRef = useRef(0);
 
   const [newMessageCount, setNewMessageCount] = useState(0);
 
@@ -174,7 +180,9 @@ export default function ChatScreen() {
     ? new Date(startTime).getTime() + 24 * 60 * 60 * 1000 < Date.now()
     : false;
 
-  const dismissMenu = useCallback(() => setMenuMessage(null), []);
+  const dismissMenu = useCallback(() => {
+    setMenuMessage(null);
+  }, []);
 
   const showToast = useCallback(() => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -218,22 +226,33 @@ export default function ChatScreen() {
 
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const show = Keyboard.addListener('keyboardWillShow', (e) => {
-      Animated.timing(keyboardOffset, {
-        toValue: Math.max(0, e.endCoordinates.height - insets.bottom),
-        duration: e.duration / 2,
-        useNativeDriver: false,
-      }).start();
-    });
-    const hide = Keyboard.addListener('keyboardWillHide', (e) => {
-      Animated.timing(keyboardOffset, {
-        toValue: 0,
-        duration: e.duration / 2,
-        useNativeDriver: false,
-      }).start();
-    });
-    return () => { show.remove(); hide.remove(); };
+    if (Platform.OS === 'ios') {
+      const show = Keyboard.addListener('keyboardWillShow', (e) => {
+        rawKeyboardHeightRef.current = e.endCoordinates.height;
+        Animated.timing(keyboardOffset, {
+          toValue: Math.max(0, e.endCoordinates.height - insets.bottom),
+          duration: e.duration / 2,
+          useNativeDriver: false,
+        }).start();
+      });
+      const hide = Keyboard.addListener('keyboardWillHide', (e) => {
+        rawKeyboardHeightRef.current = 0;
+        Animated.timing(keyboardOffset, {
+          toValue: 0,
+          duration: e.duration / 2,
+          useNativeDriver: false,
+        }).start();
+      });
+      return () => { show.remove(); hide.remove(); };
+    } else {
+      const show = Keyboard.addListener('keyboardDidShow', (e) => {
+        rawKeyboardHeightRef.current = e.endCoordinates.height;
+      });
+      const hide = Keyboard.addListener('keyboardDidHide', () => {
+        rawKeyboardHeightRef.current = 0;
+      });
+      return () => { show.remove(); hide.remove(); };
+    }
   }, [keyboardOffset, insets.bottom]);
 
   useEffect(() => {
@@ -359,14 +378,52 @@ export default function ChatScreen() {
     setInputText('');
   }, []);
 
-  const handleLongPress = useCallback((msg: ChatMessage, anchorY: number) => {
-    if (!msg.is_own || msg.deleted_at || isReadOnly) return;
+  const handleLongPress = useCallback((msg: ChatMessage) => {
+    if (msg.deleted_at) return;
+    // Own messages in read-only mode: nothing actionable (no edit/delete, and
+    // copy alone isn't worth surfacing here). Received messages stay copyable.
+    if (msg.is_own && isReadOnly) return;
+    const ref = bubbleRefs.current.get(msg.id);
+    if (!ref) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    menuScale.setValue(0.88);
-    setMenuMessage(msg);
-    setMenuAnchorY(anchorY);
-    Animated.spring(menuScale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 22 }).start();
-  }, [isReadOnly, menuScale]);
+    ref.measure((_x, _y, _w, height, _pageX, pageY) => {
+      const bubbleTop    = pageY;
+      const bubbleBottom = pageY + height;
+      const rawKbH       = rawKeyboardHeightRef.current;
+      // Available Y below which the card bottom must not reach —
+      // just above the input bar (approx 52px tall) with a small margin.
+      const INPUT_BAR_H  = Spacing.two + 36 + Spacing.one;
+      const availBottom  = (rawKbH > 0 ? SCREEN_HEIGHT - rawKbH : SCREEN_HEIGHT - insets.bottom)
+        - INPUT_BAR_H - MENU_GAP;
+
+      const cardHeight = msg.is_own ? CARD_HEIGHT_3 : CARD_HEIGHT_1;
+      const minTop     = insets.top + 60;
+      // Own messages default to BELOW the bubble (thumb comes from the input bar).
+      // Received messages default to ABOVE (finger is already up in the transcript).
+      // Either side flips to the opposite edge when there's no room.
+      // The "flip" (rare) path gets extra padding so the shadow doesn't crowd
+      // the text; the preferred path stays tight (MENU_GAP) to match sent-side spacing.
+      const FLIP_UP_GAP  = MENU_GAP + 12;
+      const posBelow     = bubbleBottom + MENU_GAP;
+      const posAboveTight = bubbleTop - MENU_GAP - cardHeight;
+      const posAboveFlip  = bubbleTop - FLIP_UP_GAP - cardHeight;
+      const fitsBelow = posBelow + cardHeight <= availBottom;
+
+      let cardTop: number;
+      if (!msg.is_own) {
+        // Received: prefer above with tight gap; flip below if no room above.
+        cardTop = posAboveTight >= minTop ? posAboveTight : posBelow;
+      } else {
+        // Own: prefer below with tight gap; flip above with extra padding.
+        cardTop = fitsBelow ? posBelow : Math.max(minTop, posAboveFlip);
+      }
+
+      menuScale.setValue(0.88);
+      setMenuMessage(msg);
+      setMenuAnchorY(cardTop);
+      Animated.spring(menuScale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 22 }).start();
+    });
+  }, [isReadOnly, menuScale, insets]);
 
   const sendMessage = useCallback(async () => {
     const body = inputText.trim();
@@ -492,10 +549,13 @@ export default function ChatScreen() {
           <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
             <Pressable
               style={[styles.rowOwn, { marginBottom: mb }]}
-              onLongPress={(e) => handleLongPress(msg, e.nativeEvent.pageY)}
+              onLongPress={() => handleLongPress(msg)}
               delayLongPress={300}
             >
-              <View style={styles.ownBubbleGroup}>
+              <View
+                ref={(r) => { bubbleRefs.current.set(msg.id, r); }}
+                style={styles.ownBubbleGroup}
+              >
                 {msg.deleted_at ? (
                   <View style={[styles.bubbleOwn, styles.bubbleDeleted, { borderColor: theme.line }]}>
                     <ThemedText style={[styles.tombstoneText, { color: theme.muted }]}>This message was deleted</ThemedText>
@@ -525,12 +585,19 @@ export default function ChatScreen() {
     return (
       <View style={styles.rowClip}>
         <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
-          <View style={[styles.rowOther, { marginBottom: mb }]}>
+          <Pressable
+            style={[styles.rowOther, { marginBottom: mb }]}
+            onLongPress={() => handleLongPress(msg)}
+            delayLongPress={300}
+          >
             {/* Avatar slot — always 32 px wide so bubbles stay aligned */}
             <View style={styles.avatarSlot}>
               {isNewestInGroup && <Avatar photo={msg.sender_photo} name={msg.sender_name} />}
             </View>
-            <View style={styles.bubbleOtherWrapper}>
+            <View
+              ref={(r) => { bubbleRefs.current.set(msg.id, r); }}
+              style={styles.bubbleOtherWrapper}
+            >
               {isOldestInGroup && (
                 <ThemedText style={[styles.senderName, { color: theme.muted }]}>
                   {msg.sender_name}
@@ -551,7 +618,7 @@ export default function ChatScreen() {
                 </>
               )}
             </View>
-          </View>
+          </Pressable>
           <View style={[styles.msgTimestamp, { top: tsTop, bottom: tsBottom }]}>
             <ThemedText style={[styles.msgTimestampText, { color: theme.muted }]}>{msgTime}</ThemedText>
           </View>
@@ -675,15 +742,18 @@ export default function ChatScreen() {
       </Animated.View>
 
       {/* Floating message-options menu — in-tree so the keyboard stays open */}
-      {menuMessage && (() => {
-        const above  = menuAnchorY > SCREEN_HEIGHT * 0.55;
-        const cardPos = above
-          ? { bottom: SCREEN_HEIGHT - menuAnchorY + 10, right: Spacing.three }
-          : { top: menuAnchorY + 10,                    right: Spacing.three };
-        return (
-          <View style={[StyleSheet.absoluteFill, styles.menuOverlay]}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={dismissMenu} />
-            <Animated.View style={[styles.menuCard, cardPos, { transform: [{ scale: menuScale }] }]}>
+      {menuMessage && (
+        <View style={[StyleSheet.absoluteFill, styles.menuOverlay]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={dismissMenu} />
+          <Animated.View
+            style={[
+              styles.menuCard,
+              { top: menuAnchorY, transform: [{ scale: menuScale }] },
+              menuMessage.is_own
+                ? { right: Spacing.three }
+                : { left: Spacing.three + AVATAR_SIZE + Spacing.one + 2 },
+            ]}
+          >
               {/* Copy */}
               <Pressable
                 style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
@@ -696,36 +766,39 @@ export default function ChatScreen() {
                 <Feather name="copy" size={16} color={theme.ink} />
                 <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Copy</ThemedText>
               </Pressable>
-              <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
-              {/* Edit */}
-              <Pressable
-                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
-                onPress={() => {
-                  setEditingMessage(menuMessage);
-                  setInputText(menuMessage.body ?? '');
-                  dismissMenu();
-                }}
-              >
-                <Feather name="edit-2" size={16} color={theme.ink} />
-                <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Edit</ThemedText>
-              </Pressable>
-              <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
-              {/* Delete */}
-              <Pressable
-                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
-                onPress={() => {
-                  const msg = menuMessage;
-                  dismissMenu();
-                  setDeletingMessage(msg);
-                }}
-              >
-                <Feather name="trash-2" size={16} color={theme.danger} />
-                <ThemedText style={[styles.menuItemLabel, { color: theme.danger }]}>Delete</ThemedText>
-              </Pressable>
-            </Animated.View>
-          </View>
-        );
-      })()}
+              {menuMessage.is_own && (
+                <>
+                  <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
+                  {/* Edit */}
+                  <Pressable
+                    style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                    onPress={() => {
+                      setEditingMessage(menuMessage);
+                      setInputText(menuMessage.body ?? '');
+                      dismissMenu();
+                    }}
+                  >
+                    <Feather name="edit-2" size={16} color={theme.ink} />
+                    <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Edit</ThemedText>
+                  </Pressable>
+                  <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
+                  {/* Delete */}
+                  <Pressable
+                    style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                    onPress={() => {
+                      const msg = menuMessage;
+                      dismissMenu();
+                      setDeletingMessage(msg);
+                    }}
+                  >
+                    <Feather name="trash-2" size={16} color={theme.danger} />
+                    <ThemedText style={[styles.menuItemLabel, { color: theme.danger }]}>Delete</ThemedText>
+                  </Pressable>
+                </>
+              )}
+          </Animated.View>
+        </View>
+      )}
 
       {/* Delete confirmation — in-tree so keyboard stays open */}
       {deletingMessage && (
