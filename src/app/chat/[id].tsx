@@ -10,7 +10,6 @@ import {
   Dimensions,
   FlatList,
   Keyboard,
-  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -155,12 +154,14 @@ export default function ChatScreen() {
   const [sending,        setSending]        = useState(false);
   const [currentUserId,  setCurrentUserId]  = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
-  const [menuMessage,    setMenuMessage]    = useState<ChatMessage | null>(null);
-  const [menuAnchorY,    setMenuAnchorY]    = useState(0);
+  const [menuMessage,     setMenuMessage]     = useState<ChatMessage | null>(null);
+  const [menuAnchorY,     setMenuAnchorY]     = useState(0);
+  const [deletingMessage, setDeletingMessage] = useState<ChatMessage | null>(null);
 
-  const menuScale   = useRef(new Animated.Value(0.88)).current;
-  const toastOpacity = useRef(new Animated.Value(0)).current;
-  const toastTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const menuScale        = useRef(new Animated.Value(0.88)).current;
+  const toastOpacity     = useRef(new Animated.Value(0)).current;
+  const toastTranslateY  = useRef(new Animated.Value(-16)).current;
+  const toastTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const seenIds       = useRef<Set<string>>(new Set());
   const senderCache   = useRef<Record<string, { name: string; photo: string | null }>>({});
@@ -177,11 +178,16 @@ export default function ChatScreen() {
 
   const showToast = useCallback(() => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastOpacity.setValue(1);
+    toastOpacity.setValue(0);
+    toastTranslateY.setValue(-16);
+    Animated.parallel([
+      Animated.timing(toastOpacity,    { toValue: 1, duration: 180, useNativeDriver: true }),
+      Animated.spring(toastTranslateY, { toValue: 0, useNativeDriver: true, tension: 280, friction: 22 }),
+    ]).start();
     toastTimer.current = setTimeout(() => {
-      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      Animated.timing(toastOpacity, { toValue: 0, duration: 250, useNativeDriver: true }).start();
     }, 1500);
-  }, [toastOpacity]);
+  }, [toastOpacity, toastTranslateY]);
 
   const keyboardOffset = useRef(new Animated.Value(0)).current;
   const swipeX       = useRef(new Animated.Value(0)).current;
@@ -666,91 +672,105 @@ export default function ChatScreen() {
           </View>
         )}
 
-        {/* "Copied" toast — sits above the input bar */}
-        <Animated.View
-          style={[styles.toast, { opacity: toastOpacity }]}
-          pointerEvents="none"
-        >
-          <ThemedText style={styles.toastText}>Copied</ThemedText>
-        </Animated.View>
       </Animated.View>
 
-      {/* Floating message-options menu */}
-      <Modal
-        visible={!!menuMessage}
-        transparent
-        animationType="fade"
-        onRequestClose={dismissMenu}
-        statusBarTranslucent
-      >
-        {menuMessage && (() => {
-          const above = menuAnchorY > SCREEN_HEIGHT * 0.55;
-          const cardPos = above
-            ? { bottom: SCREEN_HEIGHT - menuAnchorY + 10, right: Spacing.three }
-            : { top: menuAnchorY + 10,                    right: Spacing.three };
-          return (
-            <View style={styles.menuOverlay}>
-              <Pressable style={StyleSheet.absoluteFill} onPress={dismissMenu} />
-              <Animated.View style={[styles.menuCard, cardPos, { transform: [{ scale: menuScale }] }]}>
-                {/* Copy */}
-                <Pressable
-                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
-                  onPress={() => {
-                    Clipboard.setStringAsync(menuMessage.body ?? '');
-                    dismissMenu();
-                    showToast();
-                  }}
-                >
-                  <Feather name="copy" size={16} color={theme.ink} />
-                  <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Copy</ThemedText>
-                </Pressable>
-                <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
-                {/* Edit */}
-                <Pressable
-                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
-                  onPress={() => {
-                    setEditingMessage(menuMessage);
-                    setInputText(menuMessage.body ?? '');
-                    dismissMenu();
-                  }}
-                >
-                  <Feather name="edit-2" size={16} color={theme.ink} />
-                  <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Edit</ThemedText>
-                </Pressable>
-                <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
-                {/* Delete */}
-                <Pressable
-                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
-                  onPress={() => {
-                    const msg = menuMessage;
-                    dismissMenu();
-                    Alert.alert('Delete message?', 'This cannot be undone.', [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: async () => {
-                          setMessages(prev => prev.map(m =>
-                            m.id === msg.id ? { ...m, body: null, deleted_at: new Date().toISOString() } : m
-                          ));
-                          const { error } = await supabase.rpc('delete_message', { p_message_id: msg.id });
-                          if (error) {
-                            setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
-                            Alert.alert('Delete failed', 'Could not delete the message.');
-                          }
-                        },
-                      },
-                    ]);
-                  }}
-                >
-                  <Feather name="trash-2" size={16} color={theme.danger} />
-                  <ThemedText style={[styles.menuItemLabel, { color: theme.danger }]}>Delete</ThemedText>
-                </Pressable>
-              </Animated.View>
+      {/* Floating message-options menu — in-tree so the keyboard stays open */}
+      {menuMessage && (() => {
+        const above  = menuAnchorY > SCREEN_HEIGHT * 0.55;
+        const cardPos = above
+          ? { bottom: SCREEN_HEIGHT - menuAnchorY + 10, right: Spacing.three }
+          : { top: menuAnchorY + 10,                    right: Spacing.three };
+        return (
+          <View style={[StyleSheet.absoluteFill, styles.menuOverlay]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={dismissMenu} />
+            <Animated.View style={[styles.menuCard, cardPos, { transform: [{ scale: menuScale }] }]}>
+              {/* Copy */}
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                onPress={() => {
+                  Clipboard.setStringAsync(menuMessage.body ?? '');
+                  dismissMenu();
+                  showToast();
+                }}
+              >
+                <Feather name="copy" size={16} color={theme.ink} />
+                <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Copy</ThemedText>
+              </Pressable>
+              <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
+              {/* Edit */}
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                onPress={() => {
+                  setEditingMessage(menuMessage);
+                  setInputText(menuMessage.body ?? '');
+                  dismissMenu();
+                }}
+              >
+                <Feather name="edit-2" size={16} color={theme.ink} />
+                <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Edit</ThemedText>
+              </Pressable>
+              <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
+              {/* Delete */}
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                onPress={() => {
+                  const msg = menuMessage;
+                  dismissMenu();
+                  setDeletingMessage(msg);
+                }}
+              >
+                <Feather name="trash-2" size={16} color={theme.danger} />
+                <ThemedText style={[styles.menuItemLabel, { color: theme.danger }]}>Delete</ThemedText>
+              </Pressable>
+            </Animated.View>
+          </View>
+        );
+      })()}
+
+      {/* Delete confirmation — in-tree so keyboard stays open */}
+      {deletingMessage && (
+        <View style={[StyleSheet.absoluteFill, styles.confirmOverlay]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setDeletingMessage(null)} />
+          <View style={[styles.confirmCard, { backgroundColor: theme.surface }]}>
+            <ThemedText style={[styles.confirmTitle, { color: theme.ink }]}>Delete message?</ThemedText>
+            <ThemedText style={[styles.confirmBody,  { color: theme.muted }]}>This cannot be undone.</ThemedText>
+            <View style={[styles.confirmDivider, { backgroundColor: theme.line }]} />
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={({ pressed }) => [styles.confirmBtn, pressed && { opacity: 0.6 }]}
+                onPress={() => setDeletingMessage(null)}
+              >
+                <ThemedText style={[styles.confirmBtnLabel, { color: theme.ink }]}>Cancel</ThemedText>
+              </Pressable>
+              <View style={[styles.confirmBtnDivider, { backgroundColor: theme.line }]} />
+              <Pressable
+                style={({ pressed }) => [styles.confirmBtn, pressed && { opacity: 0.6 }]}
+                onPress={async () => {
+                  const msg = deletingMessage;
+                  setDeletingMessage(null);
+                  setMessages(prev => prev.map(m =>
+                    m.id === msg.id ? { ...m, body: null, deleted_at: new Date().toISOString() } : m
+                  ));
+                  const { error } = await supabase.rpc('delete_message', { p_message_id: msg.id });
+                  if (error) {
+                    setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
+                  }
+                }}
+              >
+                <ThemedText style={[styles.confirmBtnLabel, { color: theme.danger }]}>Delete</ThemedText>
+              </Pressable>
             </View>
-          );
-        })()}
-      </Modal>
+          </View>
+        </View>
+      )}
+
+      {/* "Copied" toast — drops in from top */}
+      <Animated.View
+        style={[styles.toast, { top: insets.top + 56, opacity: toastOpacity, transform: [{ translateY: toastTranslateY }] }]}
+        pointerEvents="none"
+      >
+        <ThemedText style={styles.toastText}>Copied</ThemedText>
+      </Animated.View>
 
     </View>
   );
@@ -976,7 +996,7 @@ const styles = StyleSheet.create({
   },
 
   menuOverlay: {
-    flex: 1,
+    zIndex: 100,
   },
   menuCard: {
     position:         'absolute',
@@ -1005,10 +1025,56 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
   },
 
+  confirmOverlay: {
+    zIndex:          200,
+    alignItems:     'center',
+    justifyContent: 'center',
+  },
+  confirmCard: {
+    width:        280,
+    borderRadius:  16,
+    overflow:     'hidden',
+    shadowColor:  '#000',
+    shadowOpacity: 0.16,
+    shadowRadius:  20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation:     12,
+  },
+  confirmTitle: {
+    fontSize:   16,
+    fontWeight: '700',
+    textAlign:  'center',
+    paddingTop: Spacing.three + 4,
+    paddingHorizontal: Spacing.three,
+  },
+  confirmBody: {
+    fontSize:   13,
+    textAlign:  'center',
+    paddingTop:    Spacing.one + 2,
+    paddingBottom: Spacing.three,
+    paddingHorizontal: Spacing.three,
+  },
+  confirmDivider: { height: StyleSheet.hairlineWidth },
+  confirmActions: {
+    flexDirection: 'row',
+  },
+  confirmBtn: {
+    flex:            1,
+    alignItems:     'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.two + 4,
+  },
+  confirmBtnLabel: {
+    fontSize:   15,
+    fontWeight: '500',
+  },
+  confirmBtnDivider: {
+    width: StyleSheet.hairlineWidth,
+  },
+
   toast: {
     position:         'absolute',
     alignSelf:        'center',
-    bottom:            Spacing.three * 2,
     backgroundColor:  'rgba(0,0,0,0.72)',
     borderRadius:      20,
     paddingHorizontal: Spacing.three,
