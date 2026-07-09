@@ -314,6 +314,9 @@ export default function ChatScreen() {
       });
       return () => { show.remove(); hide.remove(); };
     } else {
+      // Android: rely on softwareKeyboardLayoutMode='resize' (app.json) to
+      // shrink the window when the keyboard opens; only track the raw height
+      // here for menu positioning.
       const show = Keyboard.addListener('keyboardDidShow', (e) => {
         rawKeyboardHeightRef.current = e.endCoordinates.height;
       });
