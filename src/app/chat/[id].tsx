@@ -127,6 +127,44 @@ function formatTimestamp(iso: string): string {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` · ${time}`;
 }
 
+function ReactionPills({
+  reactions,
+  align,
+  onToggle,
+}: {
+  reactions: Reaction[];
+  align:     'own' | 'other';
+  onToggle:  (emoji: string) => void;
+}) {
+  if (reactions.length === 0) return null;
+  const theme = Colors.light;
+  // Own pills sit on the message-tinted background, so they use the element
+  // fill; received pills sit on the base chat background — outline only.
+  const defaultBg = align === 'own' ? theme.backgroundElement : theme.bg;
+  return (
+    <View style={align === 'own' ? styles.reactionsRowOwn : styles.reactionsRowOther}>
+      {reactions.map(r => (
+        <Pressable
+          key={r.emoji}
+          onPress={() => onToggle(r.emoji)}
+          style={[
+            styles.reactionPill,
+            { backgroundColor: defaultBg, borderColor: theme.line },
+            r.reacted && { backgroundColor: theme.action + '20', borderColor: theme.action },
+          ]}
+        >
+          <ThemedText style={styles.reactionEmoji}>{r.emoji}</ThemedText>
+          {r.count > 1 && (
+            <ThemedText style={[styles.reactionCount, { color: r.reacted ? theme.action : theme.muted }]}>
+              {r.count}
+            </ThemedText>
+          )}
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 function Avatar({ photo, name }: { photo: string | null; name: string }) {
   const theme    = Colors.light;
   const initials = name.split(' ').map(w => w[0] ?? '').join('').slice(0, 2).toUpperCase() || '?';
@@ -224,29 +262,25 @@ export default function ChatScreen() {
 
   // Toggle-or-replace: server RPC handles the semantics; we optimistically
   // update the local aggregate so tapping feels instant.
+  // Optimistic iMessage rule: tapping your existing reaction toggles it off;
+  // any other tap replaces it. Compute the user's next reaction, then apply
+  // the mine→nextMine delta across the aggregated pill counts.
   const setReaction = useCallback((messageId: string, emoji: string) => {
-    // Optimistic: apply the iMessage rule client-side too — replace the user's
-    // existing reaction, or toggle off if it matches.
     setMessages(prev => prev.map(m => {
       if (m.id !== messageId) return m;
-      const mine = m.reactions.find(r => r.reacted);
-      let next = m.reactions.map(r => ({ ...r }));
-      // Remove one from user's current reaction (if any).
-      if (mine) {
-        next = next.map(r => r.emoji === mine.emoji
-          ? { ...r, count: r.count - 1, reacted: false }
-          : r).filter(r => r.count > 0);
+      const mine     = m.reactions.find(r => r.reacted)?.emoji ?? null;
+      const nextMine = mine === emoji ? null : emoji;
+      const patched  = m.reactions
+        .map(r => ({
+          ...r,
+          count:   r.count + (nextMine === r.emoji ? 1 : 0) - (mine === r.emoji ? 1 : 0),
+          reacted: nextMine === r.emoji,
+        }))
+        .filter(r => r.count > 0);
+      if (nextMine && !patched.some(r => r.emoji === nextMine)) {
+        patched.push({ emoji: nextMine, count: 1, reacted: true });
       }
-      // If the tapped emoji matches user's old one, we're done (toggle off).
-      if (!mine || mine.emoji !== emoji) {
-        const existing = next.find(r => r.emoji === emoji);
-        if (existing) {
-          next = next.map(r => r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r);
-        } else {
-          next.push({ emoji, count: 1, reacted: true });
-        }
-      }
-      return { ...m, reactions: next };
+      return { ...m, reactions: patched };
     }));
     supabase.rpc('set_message_reaction', { p_message_id: messageId, p_emoji: emoji }).then(({ error }) => {
       if (error) refreshReactionsFor(messageId);
@@ -670,28 +704,7 @@ export default function ChatScreen() {
                     {msg.edited_at && (
                       <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
                     )}
-                    {msg.reactions.length > 0 && (
-                      <View style={styles.reactionsRowOwn}>
-                        {msg.reactions.map(r => (
-                          <Pressable
-                            key={r.emoji}
-                            onPress={() => setReaction(msg.id, r.emoji)}
-                            style={[
-                              styles.reactionPill,
-                              { backgroundColor: theme.backgroundElement, borderColor: theme.line },
-                              r.reacted && { backgroundColor: theme.action + '20', borderColor: theme.action },
-                            ]}
-                          >
-                            <ThemedText style={styles.reactionEmoji}>{r.emoji}</ThemedText>
-                            {r.count > 1 && (
-                              <ThemedText style={[styles.reactionCount, { color: r.reacted ? theme.action : theme.muted }]}>
-                                {r.count}
-                              </ThemedText>
-                            )}
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
+                    <ReactionPills reactions={msg.reactions} align="own" onToggle={(e) => setReaction(msg.id, e)} />
                   </>
                 )}
               </View>
@@ -739,28 +752,7 @@ export default function ChatScreen() {
                   {msg.edited_at && (
                     <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
                   )}
-                  {msg.reactions.length > 0 && (
-                    <View style={styles.reactionsRowOther}>
-                      {msg.reactions.map(r => (
-                        <Pressable
-                          key={r.emoji}
-                          onPress={() => setReaction(msg.id, r.emoji)}
-                          style={[
-                            styles.reactionPill,
-                            { backgroundColor: theme.bg, borderColor: theme.line },
-                            r.reacted && { backgroundColor: theme.action + '20', borderColor: theme.action },
-                          ]}
-                        >
-                          <ThemedText style={styles.reactionEmoji}>{r.emoji}</ThemedText>
-                          {r.count > 1 && (
-                            <ThemedText style={[styles.reactionCount, { color: r.reacted ? theme.action : theme.muted }]}>
-                              {r.count}
-                            </ThemedText>
-                          )}
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
+                  <ReactionPills reactions={msg.reactions} align="other" onToggle={(e) => setReaction(msg.id, e)} />
                 </>
               )}
             </View>
