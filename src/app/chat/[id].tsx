@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import EmojiPicker from 'rn-emoji-keyboard';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -79,6 +80,8 @@ function ChatSkeletonScreen({ title }: { title: string }) {
   );
 }
 
+type Reaction = { emoji: string; count: number; reacted: boolean };
+
 type ChatMessage = {
   id:           string;
   body:         string | null;  // null when deleted
@@ -89,6 +92,7 @@ type ChatMessage = {
   is_own:       boolean;
   edited_at:    string | null;
   deleted_at:   string | null;
+  reactions:    Reaction[];
 };
 
 type ListItem =
@@ -104,6 +108,9 @@ const MENU_ITEM_H    = 44; // approximate menu row height (padding + text)
 const CARD_HEIGHT_1  = MENU_ITEM_H;                 // Copy only (received messages)
 const CARD_HEIGHT_3  = MENU_ITEM_H * 3 + 2;         // Copy + Edit + Delete (own)
 const MENU_GAP       = 8;   // gap between bubble bottom and card top
+const STRIP_HEIGHT   = 48;  // reactions strip pill height
+const STRIP_CARD_GAP = 6;   // gap between reactions strip and menu card
+const QUICK_EMOJIS   = ['❤️', '👍', '👎', '😂', '‼️', '❓'];
 // Pixel heights of extra row content that push the timestamp away from the bubble center.
 const SENDER_NAME_OFFSET = 20; // senderName fontSize:12 (~16px) + marginBottom:1 + gap:3
 const EDITED_OFFSET      = 17; // editedLabel fontSize:11 (~14px) + gap:2-3
@@ -161,6 +168,8 @@ export default function ChatScreen() {
   const [menuMessage,     setMenuMessage]     = useState<ChatMessage | null>(null);
   const [menuAnchorY,     setMenuAnchorY]     = useState(0);
   const [deletingMessage, setDeletingMessage] = useState<ChatMessage | null>(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [pickerTargetId,  setPickerTargetId]  = useState<string | null>(null);
 
   const menuScale        = useRef(new Animated.Value(0.88)).current;
   const toastOpacity     = useRef(new Animated.Value(0)).current;
@@ -173,6 +182,7 @@ export default function ChatScreen() {
   const isNearBottom  = useRef(true);
   const bubbleRefs           = useRef<Map<string, View | null>>(new Map());
   const rawKeyboardHeightRef = useRef(0);
+  const refreshReactionsRef  = useRef<(id: string) => void>(() => {});
 
   const [newMessageCount, setNewMessageCount] = useState(0);
 
@@ -183,6 +193,65 @@ export default function ChatScreen() {
   const dismissMenu = useCallback(() => {
     setMenuMessage(null);
   }, []);
+
+  // Re-aggregate a single message's reactions from raw rows.
+  // Called when a realtime event fires for message_reactions — the payload only
+  // has one row, but we need the whole grouped/counted view for that message.
+  const refreshReactionsFor = useCallback(async (messageId: string) => {
+    const { data, error } = await supabase
+      .from('message_reactions')
+      .select('emoji, user_id, created_at')
+      .eq('message_id', messageId)
+      .order('created_at', { ascending: true });
+    if (error || !data) return;
+    const byEmoji = new Map<string, { count: number; reacted: boolean }>();
+    for (const row of data) {
+      const entry = byEmoji.get(row.emoji) ?? { count: 0, reacted: false };
+      entry.count += 1;
+      if (row.user_id === currentUserId) entry.reacted = true;
+      byEmoji.set(row.emoji, entry);
+    }
+    const reactions: Reaction[] = Array.from(byEmoji, ([emoji, v]) => ({
+      emoji, count: v.count, reacted: v.reacted,
+    }));
+    setMessages(prev => prev.map(m => (m.id === messageId ? { ...m, reactions } : m)));
+  }, [currentUserId]);
+
+  // Keep a ref pointing at the latest refreshReactionsFor so the realtime
+  // subscription (set up once per activity id) always sees the current closure,
+  // even after currentUserId resolves and the callback identity changes.
+  refreshReactionsRef.current = refreshReactionsFor;
+
+  // Toggle-or-replace: server RPC handles the semantics; we optimistically
+  // update the local aggregate so tapping feels instant.
+  const setReaction = useCallback((messageId: string, emoji: string) => {
+    // Optimistic: apply the iMessage rule client-side too — replace the user's
+    // existing reaction, or toggle off if it matches.
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const mine = m.reactions.find(r => r.reacted);
+      let next = m.reactions.map(r => ({ ...r }));
+      // Remove one from user's current reaction (if any).
+      if (mine) {
+        next = next.map(r => r.emoji === mine.emoji
+          ? { ...r, count: r.count - 1, reacted: false }
+          : r).filter(r => r.count > 0);
+      }
+      // If the tapped emoji matches user's old one, we're done (toggle off).
+      if (!mine || mine.emoji !== emoji) {
+        const existing = next.find(r => r.emoji === emoji);
+        if (existing) {
+          next = next.map(r => r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r);
+        } else {
+          next.push({ emoji, count: 1, reacted: true });
+        }
+      }
+      return { ...m, reactions: next };
+    }));
+    supabase.rpc('set_message_reaction', { p_message_id: messageId, p_emoji: emoji }).then(({ error }) => {
+      if (error) refreshReactionsFor(messageId);
+    });
+  }, [refreshReactionsFor]);
 
   const showToast = useCallback(() => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -273,7 +342,12 @@ export default function ChatScreen() {
       p_limit:       PAGE_SIZE,
     });
     if (error || !data) { setLoading(false); return; }
-    const msgs = data as ChatMessage[];
+    // The RPC returns reactions as jsonb; normalize to Reaction[] so downstream
+    // rendering doesn't need to guard against null / wrong shapes.
+    const msgs: ChatMessage[] = (data as unknown as Array<Omit<ChatMessage, 'reactions'> & { reactions: unknown }>).map(m => ({
+      ...m,
+      reactions: Array.isArray(m.reactions) ? (m.reactions as Reaction[]) : [],
+    }));
     ingestMessages(msgs);
     if (before) {
       setMessages(prev => [...prev, ...msgs]);
@@ -343,6 +417,7 @@ export default function ChatScreen() {
             is_own:       senderId === user?.id,
             edited_at:    null,
             deleted_at:   null,
+            reactions:    [],
           };
           setMessages(prev => [msg, ...prev]);
           if (!isNearBottom.current) setNewMessageCount(n => n + 1);
@@ -350,7 +425,31 @@ export default function ChatScreen() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Reactions on a separate channel — chaining multiple `postgres_changes`
+    // bindings on one channel sometimes drops the later ones.
+    // No server-side filter here: Supabase Realtime strips DELETE payloads
+    // down to just the PK (no activity_id), so a `filter: activity_id=eq.…`
+    // would drop reaction-removal events. We filter client-side against
+    // seenIds instead — messages we've loaded for this chat.
+    const reactionsChannel = supabase
+      .channel(`chat-reactions-${id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'message_reactions' },
+        (payload) => {
+          const raw = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old) as Record<string, unknown>;
+          const mid = raw?.message_id as string | undefined;
+          const aid = raw?.activity_id as string | undefined;
+          const belongsHere = aid === id || (!!mid && seenIds.current.has(mid));
+          if (mid && belongsHere) refreshReactionsRef.current(mid);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(reactionsChannel);
+    };
   }, [id]);
 
   const scrollToBottom = useCallback(() => {
@@ -396,31 +495,30 @@ export default function ChatScreen() {
       const availBottom  = (rawKbH > 0 ? SCREEN_HEIGHT - rawKbH : SCREEN_HEIGHT - insets.bottom)
         - INPUT_BAR_H - MENU_GAP;
 
-      const cardHeight = msg.is_own ? CARD_HEIGHT_3 : CARD_HEIGHT_1;
-      const minTop     = insets.top + 60;
+      const cardHeight   = msg.is_own ? CARD_HEIGHT_3 : CARD_HEIGHT_1;
+      const totalHeight  = STRIP_HEIGHT + STRIP_CARD_GAP + cardHeight;
+      const minTop       = insets.top + 60;
       // Own messages default to BELOW the bubble (thumb comes from the input bar).
       // Received messages default to ABOVE (finger is already up in the transcript).
       // Either side flips to the opposite edge when there's no room.
-      // The "flip" (rare) path gets extra padding so the shadow doesn't crowd
-      // the text; the preferred path stays tight (MENU_GAP) to match sent-side spacing.
-      const FLIP_UP_GAP  = MENU_GAP + 12;
-      const posBelow     = bubbleBottom + MENU_GAP;
-      const posAboveTight = bubbleTop - MENU_GAP - cardHeight;
-      const posAboveFlip  = bubbleTop - FLIP_UP_GAP - cardHeight;
-      const fitsBelow = posBelow + cardHeight <= availBottom;
+      const FLIP_UP_GAP   = MENU_GAP + 12;
+      const posBelow      = bubbleBottom + MENU_GAP;
+      const posAboveTight = bubbleTop - MENU_GAP     - totalHeight;
+      const posAboveFlip  = bubbleTop - FLIP_UP_GAP  - totalHeight;
+      const fitsBelow     = posBelow + totalHeight <= availBottom;
 
-      let cardTop: number;
+      let anchorTop: number;
       if (!msg.is_own) {
         // Received: prefer above with tight gap; flip below if no room above.
-        cardTop = posAboveTight >= minTop ? posAboveTight : posBelow;
+        anchorTop = posAboveTight >= minTop ? posAboveTight : posBelow;
       } else {
         // Own: prefer below with tight gap; flip above with extra padding.
-        cardTop = fitsBelow ? posBelow : Math.max(minTop, posAboveFlip);
+        anchorTop = fitsBelow ? posBelow : Math.max(minTop, posAboveFlip);
       }
 
       menuScale.setValue(0.88);
       setMenuMessage(msg);
-      setMenuAnchorY(cardTop);
+      setMenuAnchorY(anchorTop);
       Animated.spring(menuScale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 22 }).start();
     });
   }, [isReadOnly, menuScale, insets]);
@@ -463,6 +561,7 @@ export default function ChatScreen() {
       is_own:       true,
       edited_at:    null,
       deleted_at:   null,
+      reactions:    [],
     };
     setMessages(prev => [optimistic, ...prev]);
     // Defer until the FlatList has rendered the new item, otherwise the scroll
@@ -568,6 +667,28 @@ export default function ChatScreen() {
                     {msg.edited_at && (
                       <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
                     )}
+                    {msg.reactions.length > 0 && (
+                      <View style={styles.reactionsRowOwn}>
+                        {msg.reactions.map(r => (
+                          <Pressable
+                            key={r.emoji}
+                            onPress={() => setReaction(msg.id, r.emoji)}
+                            style={[
+                              styles.reactionPill,
+                              { backgroundColor: theme.backgroundElement, borderColor: theme.line },
+                              r.reacted && { backgroundColor: theme.action + '20', borderColor: theme.action },
+                            ]}
+                          >
+                            <ThemedText style={styles.reactionEmoji}>{r.emoji}</ThemedText>
+                            {r.count > 1 && (
+                              <ThemedText style={[styles.reactionCount, { color: r.reacted ? theme.action : theme.muted }]}>
+                                {r.count}
+                              </ThemedText>
+                            )}
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
                   </>
                 )}
               </View>
@@ -615,6 +736,28 @@ export default function ChatScreen() {
                   {msg.edited_at && (
                     <ThemedText style={[styles.editedLabel, { color: theme.muted }]}>Edited</ThemedText>
                   )}
+                  {msg.reactions.length > 0 && (
+                    <View style={styles.reactionsRowOther}>
+                      {msg.reactions.map(r => (
+                        <Pressable
+                          key={r.emoji}
+                          onPress={() => setReaction(msg.id, r.emoji)}
+                          style={[
+                            styles.reactionPill,
+                            { backgroundColor: theme.bg, borderColor: theme.line },
+                            r.reacted && { backgroundColor: theme.action + '20', borderColor: theme.action },
+                          ]}
+                        >
+                          <ThemedText style={styles.reactionEmoji}>{r.emoji}</ThemedText>
+                          {r.count > 1 && (
+                            <ThemedText style={[styles.reactionCount, { color: r.reacted ? theme.action : theme.muted }]}>
+                              {r.count}
+                            </ThemedText>
+                          )}
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
                 </>
               )}
             </View>
@@ -625,7 +768,7 @@ export default function ChatScreen() {
         </Animated.View>
       </View>
     );
-  }, [theme, swipeX, handleLongPress]);
+  }, [theme, swipeX, handleLongPress, setReaction]);
 
   if (loading) return <ChatSkeletonScreen title={title ?? 'Chat'} />;
 
@@ -745,10 +888,57 @@ export default function ChatScreen() {
       {menuMessage && (
         <View style={[StyleSheet.absoluteFill, styles.menuOverlay]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={dismissMenu} />
+
+          {/* Reactions strip — sits above the menu card */}
+          <Animated.View
+            style={[
+              styles.reactionsStrip,
+              { top: menuAnchorY, transform: [{ scale: menuScale }] },
+              menuMessage.is_own
+                ? { right: Spacing.three }
+                : { left: Spacing.three + AVATAR_SIZE + Spacing.one + 2 },
+            ]}
+          >
+            {QUICK_EMOJIS.map(emoji => {
+              const isMine = menuMessage.reactions.some(r => r.emoji === emoji && r.reacted);
+              return (
+                <Pressable
+                  key={emoji}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setReaction(menuMessage.id, emoji);
+                    dismissMenu();
+                  }}
+                  style={({ pressed }) => [
+                    styles.reactionsStripBtn,
+                    isMine  && { backgroundColor: theme.action + '20' },
+                    pressed && { backgroundColor: theme.line },
+                  ]}
+                >
+                  <ThemedText style={styles.reactionsStripEmoji}>{emoji}</ThemedText>
+                </Pressable>
+              );
+            })}
+            <Pressable
+              onPress={() => {
+                setPickerTargetId(menuMessage.id);
+                dismissMenu();
+                setEmojiPickerOpen(true);
+              }}
+              style={({ pressed }) => [
+                styles.reactionsStripBtn,
+                { backgroundColor: theme.backgroundElement },
+                pressed && { backgroundColor: theme.line },
+              ]}
+            >
+              <Feather name="plus" size={18} color={theme.ink} />
+            </Pressable>
+          </Animated.View>
+
           <Animated.View
             style={[
               styles.menuCard,
-              { top: menuAnchorY, transform: [{ scale: menuScale }] },
+              { top: menuAnchorY + STRIP_HEIGHT + STRIP_CARD_GAP, transform: [{ scale: menuScale }] },
               menuMessage.is_own
                 ? { right: Spacing.three }
                 : { left: Spacing.three + AVATAR_SIZE + Spacing.one + 2 },
@@ -844,6 +1034,17 @@ export default function ChatScreen() {
       >
         <ThemedText style={styles.toastText}>Copied</ThemedText>
       </Animated.View>
+
+      {/* Full emoji picker — opens when the user taps "+" on the reactions strip */}
+      <EmojiPicker
+        open={emojiPickerOpen}
+        onClose={() => setEmojiPickerOpen(false)}
+        onEmojiSelected={(e) => {
+          if (pickerTargetId) setReaction(pickerTargetId, e.emoji);
+          setEmojiPickerOpen(false);
+          setPickerTargetId(null);
+        }}
+      />
 
     </View>
   );
@@ -1096,6 +1297,67 @@ const styles = StyleSheet.create({
   },
   menuDivider: {
     height: StyleSheet.hairlineWidth,
+  },
+
+  reactionsStrip: {
+    position:         'absolute',
+    height:            STRIP_HEIGHT,
+    flexDirection:    'row',
+    alignItems:       'center',
+    paddingHorizontal: 4,
+    borderRadius:      STRIP_HEIGHT / 2,
+    backgroundColor:  '#FFFFFF',
+    shadowColor:      '#000',
+    shadowOpacity:     0.14,
+    shadowRadius:      16,
+    shadowOffset:     { width: 0, height: 6 },
+    elevation:         10,
+  },
+  reactionsStripBtn: {
+    width:          40,
+    height:         40,
+    borderRadius:   20,
+    alignItems:     'center',
+    justifyContent: 'center',
+  },
+  reactionsStripEmoji: {
+    fontSize:   22,
+    lineHeight: 26,
+  },
+
+  reactionsRowOwn: {
+    flexDirection:  'row',
+    justifyContent: 'flex-end',
+    flexWrap:       'wrap',
+    gap:             4,
+    marginTop:       2,
+    maxWidth:       '100%',
+  },
+  reactionsRowOther: {
+    flexDirection:  'row',
+    justifyContent: 'flex-start',
+    flexWrap:       'wrap',
+    gap:             4,
+    marginTop:       2,
+    maxWidth:       '100%',
+  },
+  reactionPill: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    paddingHorizontal:  Spacing.one + 2,
+    paddingVertical:    2,
+    borderRadius:       12,
+    borderWidth:        StyleSheet.hairlineWidth,
+    gap:                3,
+    minHeight:          22,
+  },
+  reactionEmoji: {
+    fontSize:   13,
+    lineHeight: 16,
+  },
+  reactionCount: {
+    fontSize:   11,
+    fontWeight: '600',
   },
 
   confirmOverlay: {
