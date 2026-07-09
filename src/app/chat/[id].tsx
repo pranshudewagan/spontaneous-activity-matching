@@ -7,8 +7,10 @@ import {
   Alert,
   Animated,
   type DimensionValue,
+  Dimensions,
   FlatList,
   Keyboard,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -18,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 
 import { ThemedText } from '@/components/themed-text';
@@ -95,7 +98,9 @@ type ListItem =
 
 const AVATAR_SIZE  = 32;
 const PAGE_SIZE    = 30;
-const SWIPE_REVEAL = 72; // px — how far left bubbles slide to reveal timestamps
+const SWIPE_REVEAL   = 72; // px — how far left bubbles slide to reveal timestamps
+const SCREEN_HEIGHT  = Dimensions.get('window').height;
+const MENU_WIDTH     = 184;
 // Pixel heights of extra row content that push the timestamp away from the bubble center.
 const SENDER_NAME_OFFSET = 20; // senderName fontSize:12 (~16px) + marginBottom:1 + gap:3
 const EDITED_OFFSET      = 17; // editedLabel fontSize:11 (~14px) + gap:2-3
@@ -150,6 +155,12 @@ export default function ChatScreen() {
   const [sending,        setSending]        = useState(false);
   const [currentUserId,  setCurrentUserId]  = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [menuMessage,    setMenuMessage]    = useState<ChatMessage | null>(null);
+  const [menuAnchorY,    setMenuAnchorY]    = useState(0);
+
+  const menuScale   = useRef(new Animated.Value(0.88)).current;
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const seenIds       = useRef<Set<string>>(new Set());
   const senderCache   = useRef<Record<string, { name: string; photo: string | null }>>({});
@@ -161,6 +172,16 @@ export default function ChatScreen() {
   const isReadOnly = startTime
     ? new Date(startTime).getTime() + 24 * 60 * 60 * 1000 < Date.now()
     : false;
+
+  const dismissMenu = useCallback(() => setMenuMessage(null), []);
+
+  const showToast = useCallback(() => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastOpacity.setValue(1);
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    }, 1500);
+  }, [toastOpacity]);
 
   const keyboardOffset = useRef(new Animated.Value(0)).current;
   const swipeX       = useRef(new Animated.Value(0)).current;
@@ -332,48 +353,14 @@ export default function ChatScreen() {
     setInputText('');
   }, []);
 
-  const handleLongPress = useCallback((msg: ChatMessage) => {
+  const handleLongPress = useCallback((msg: ChatMessage, anchorY: number) => {
     if (!msg.is_own || msg.deleted_at || isReadOnly) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      'Message options',
-      undefined,
-      [
-        {
-          text: 'Edit',
-          onPress: () => {
-            setEditingMessage(msg);
-            setInputText(msg.body ?? '');
-          },
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Delete message?', 'This cannot be undone.', [
-              {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: async () => {
-                  const snapshot = msg;
-                  setMessages(prev => prev.map(m =>
-                    m.id === snapshot.id ? { ...m, body: null, deleted_at: new Date().toISOString() } : m
-                  ));
-                  const { error } = await supabase.rpc('delete_message', { p_message_id: snapshot.id });
-                  if (error) {
-                    setMessages(prev => prev.map(m => m.id === snapshot.id ? snapshot : m));
-                    Alert.alert('Delete failed', 'Could not delete the message.');
-                  }
-                },
-              },
-              { text: 'Cancel', style: 'cancel' },
-            ]);
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  }, [isReadOnly]);
+    menuScale.setValue(0.88);
+    setMenuMessage(msg);
+    setMenuAnchorY(anchorY);
+    Animated.spring(menuScale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 22 }).start();
+  }, [isReadOnly, menuScale]);
 
   const sendMessage = useCallback(async () => {
     const body = inputText.trim();
@@ -499,7 +486,7 @@ export default function ChatScreen() {
           <Animated.View style={{ width: '100%', transform: [{ translateX: swipeXClamped }] }}>
             <Pressable
               style={[styles.rowOwn, { marginBottom: mb }]}
-              onLongPress={() => handleLongPress(msg)}
+              onLongPress={(e) => handleLongPress(msg, e.nativeEvent.pageY)}
               delayLongPress={300}
             >
               <View style={styles.ownBubbleGroup}>
@@ -678,7 +665,92 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         )}
+
+        {/* "Copied" toast — sits above the input bar */}
+        <Animated.View
+          style={[styles.toast, { opacity: toastOpacity }]}
+          pointerEvents="none"
+        >
+          <ThemedText style={styles.toastText}>Copied</ThemedText>
+        </Animated.View>
       </Animated.View>
+
+      {/* Floating message-options menu */}
+      <Modal
+        visible={!!menuMessage}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissMenu}
+        statusBarTranslucent
+      >
+        {menuMessage && (() => {
+          const above = menuAnchorY > SCREEN_HEIGHT * 0.55;
+          const cardPos = above
+            ? { bottom: SCREEN_HEIGHT - menuAnchorY + 10, right: Spacing.three }
+            : { top: menuAnchorY + 10,                    right: Spacing.three };
+          return (
+            <View style={styles.menuOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={dismissMenu} />
+              <Animated.View style={[styles.menuCard, cardPos, { transform: [{ scale: menuScale }] }]}>
+                {/* Copy */}
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                  onPress={() => {
+                    Clipboard.setStringAsync(menuMessage.body ?? '');
+                    dismissMenu();
+                    showToast();
+                  }}
+                >
+                  <Feather name="copy" size={16} color={theme.ink} />
+                  <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Copy</ThemedText>
+                </Pressable>
+                <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
+                {/* Edit */}
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                  onPress={() => {
+                    setEditingMessage(menuMessage);
+                    setInputText(menuMessage.body ?? '');
+                    dismissMenu();
+                  }}
+                >
+                  <Feather name="edit-2" size={16} color={theme.ink} />
+                  <ThemedText style={[styles.menuItemLabel, { color: theme.ink }]}>Edit</ThemedText>
+                </Pressable>
+                <View style={[styles.menuDivider, { backgroundColor: theme.line }]} />
+                {/* Delete */}
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: theme.line }]}
+                  onPress={() => {
+                    const msg = menuMessage;
+                    dismissMenu();
+                    Alert.alert('Delete message?', 'This cannot be undone.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                          setMessages(prev => prev.map(m =>
+                            m.id === msg.id ? { ...m, body: null, deleted_at: new Date().toISOString() } : m
+                          ));
+                          const { error } = await supabase.rpc('delete_message', { p_message_id: msg.id });
+                          if (error) {
+                            setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
+                            Alert.alert('Delete failed', 'Could not delete the message.');
+                          }
+                        },
+                      },
+                    ]);
+                  }}
+                >
+                  <Feather name="trash-2" size={16} color={theme.danger} />
+                  <ThemedText style={[styles.menuItemLabel, { color: theme.danger }]}>Delete</ThemedText>
+                </Pressable>
+              </Animated.View>
+            </View>
+          );
+        })()}
+      </Modal>
 
     </View>
   );
@@ -901,5 +973,50 @@ const styles = StyleSheet.create({
     borderRadius:   18,
     alignItems:     'center',
     justifyContent: 'center',
+  },
+
+  menuOverlay: {
+    flex: 1,
+  },
+  menuCard: {
+    position:         'absolute',
+    width:             MENU_WIDTH,
+    borderRadius:      14,
+    backgroundColor:  '#FFFFFF',
+    shadowColor:      '#000',
+    shadowOpacity:     0.14,
+    shadowRadius:      16,
+    shadowOffset:     { width: 0, height: 6 },
+    elevation:         10,
+    overflow:         'hidden',
+  },
+  menuItem: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               Spacing.two + 2,
+    paddingHorizontal: Spacing.three,
+    paddingVertical:   Spacing.two + 4,
+  },
+  menuItemLabel: {
+    fontSize:   15,
+    fontWeight: '500',
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+  },
+
+  toast: {
+    position:         'absolute',
+    alignSelf:        'center',
+    bottom:            Spacing.three * 2,
+    backgroundColor:  'rgba(0,0,0,0.72)',
+    borderRadius:      20,
+    paddingHorizontal: Spacing.three,
+    paddingVertical:   Spacing.two,
+  },
+  toastText: {
+    color:      '#FFFFFF',
+    fontSize:   13,
+    fontWeight: '600',
   },
 });
