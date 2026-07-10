@@ -156,7 +156,6 @@ export default function ActivityRequestsScreen() {
 
   const pending    = requests.filter(r => r.status === 'interested');
   const waitlisted = requests.filter(r => r.status === 'waitlisted');
-  const spotsLeft  = activity ? activity.max_participants - acceptedCount - 1 : 0;
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
@@ -251,7 +250,6 @@ export default function ActivityRequestsScreen() {
                       key={req.id}
                       request={req}
                       acting={acting === req.id}
-                      spotsLeft={spotsLeft}
                       onRespond={handleRespond}
                     />
                   ))}
@@ -268,7 +266,6 @@ export default function ActivityRequestsScreen() {
                       key={req.id}
                       request={req}
                       acting={acting === req.id}
-                      spotsLeft={spotsLeft}
                       onRespond={handleRespond}
                     />
                   ))}
@@ -326,13 +323,14 @@ function AcceptedRow({ participant, removing, onRemove }: AcceptedRowProps) {
 type RequestRowProps = {
   request:   JoinRequest;
   acting:    boolean;
-  spotsLeft: number;
   onRespond: (id: string, accept: boolean) => void;
 };
 
-function RequestRow({ request, acting, spotsLeft, onRespond }: RequestRowProps) {
-  const theme      = Colors.light;
-  const canAccept  = spotsLeft > 0;
+// Approve is always enabled — the server is the source of truth for capacity.
+// If the activity is full, handleRespond surfaces the RPC's 'full' response
+// as an Alert; the client never guesses.
+function RequestRow({ request, acting, onRespond }: RequestRowProps) {
+  const theme = Colors.light;
 
   return (
     <View style={[styles.requestRow, { borderColor: theme.line }]}>
@@ -358,11 +356,10 @@ function RequestRow({ request, acting, spotsLeft, onRespond }: RequestRowProps) 
             style={({ pressed }) => [
               styles.actionBtn,
               styles.approveBtn,
-              { backgroundColor: canAccept ? theme.accent : theme.line, opacity: pressed ? 0.85 : 1 },
+              { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
             ]}
-            disabled={!canAccept}
             onPress={() => onRespond(request.id, true)}>
-            <ThemedText style={[styles.actionBtnText, { color: canAccept ? '#fff' : theme.muted }]}>Approve</ThemedText>
+            <ThemedText style={[styles.actionBtnText, { color: '#fff' }]}>Approve</ThemedText>
           </Pressable>
         </View>
       )}
