@@ -57,12 +57,10 @@ export default function DiscoverScreen() {
       p_lat:      loc.latitude,
       p_lng:      loc.longitude,
       p_radius_m: radiusM,
+      p_tags:     f.tags.length > 0 ? f.tags : null,
     });
     if (error) { console.error(error); setLoading(false); return; }
-    let results = (data ?? []) as SwipeCardData[];
-    if (f.tags.length > 0) {
-      results = results.filter(a => f.tags.some(t => a.tags.includes(t)));
-    }
+    const results = (data ?? []) as SwipeCardData[];
     setActivities(results);
     leftSwipeHistoryRef.current = [];
     setLeftSwipeHistory([]);

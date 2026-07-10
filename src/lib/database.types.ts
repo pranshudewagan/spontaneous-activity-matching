@@ -706,7 +706,12 @@ export type Database = {
         }[]
       }
       nearby_activities: {
-        Args: { p_lat: number; p_lng: number; p_radius_m: number }
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_radius_m: number
+          p_tags?: string[]
+        }
         Returns: {
           accepted_count: number
           description: string
