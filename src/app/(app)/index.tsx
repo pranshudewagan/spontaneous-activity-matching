@@ -109,6 +109,23 @@ export default function DiscoverScreen() {
     }
   }, [initLocation, loadFeed, filters]));
 
+  // Restore a card to the stack after a failed server write.
+  // Removes id from passedIds and (if present) from the undo history so the
+  // card comes back at the top and the undo button stays consistent.
+  const restoreCard = useCallback((id: string) => {
+    setPassedIds(curr => {
+      const next = new Set(curr);
+      next.delete(id);
+      passedIdsRef.current = next;
+      return next;
+    });
+    const filtered = leftSwipeHistoryRef.current.filter(h => h !== id);
+    if (filtered.length !== leftSwipeHistoryRef.current.length) {
+      leftSwipeHistoryRef.current = filtered;
+      setLeftSwipeHistory(filtered);
+    }
+  }, []);
+
   const handleSwipeLeft = useCallback((id: string) => {
     setPassedIds(prev => {
       const next = new Set(prev).add(id);
@@ -119,13 +136,20 @@ export default function DiscoverScreen() {
     leftSwipeHistoryRef.current = nextHistory;
     setLeftSwipeHistory(nextHistory);
     supabase.from('passes').insert({ activity_id: id })
-      .then(({ error }) => { if (error) console.error('pass insert failed:', error); });
-  }, []);
+      .then(({ error }) => {
+        if (error) {
+          console.error('pass insert failed:', error);
+          restoreCard(id);
+          showToast("Couldn't save that swipe — try again.");
+        }
+      });
+  }, [restoreCard, showToast]);
 
   const handleUndo = useCallback(() => {
     const history = leftSwipeHistoryRef.current;
     if (history.length === 0) return;
     const id = history[history.length - 1];
+    const prevHistory = history;
     const nextHistory = history.slice(0, -1);
     leftSwipeHistoryRef.current = nextHistory;
     setLeftSwipeHistory(nextHistory);
@@ -136,8 +160,22 @@ export default function DiscoverScreen() {
       return next;
     });
     supabase.from('passes').delete().eq('activity_id', id)
-      .then(({ error }) => { if (error) console.error('pass delete failed:', error); });
-  }, []);
+      .then(({ error }) => {
+        if (error) {
+          console.error('pass delete failed:', error);
+          // Roll back: pass row still exists on server, so re-hide the card
+          // and restore the history entry so undo stays available.
+          setPassedIds(curr => {
+            const next = new Set(curr).add(id);
+            passedIdsRef.current = next;
+            return next;
+          });
+          leftSwipeHistoryRef.current = prevHistory;
+          setLeftSwipeHistory(prevHistory);
+          showToast("Couldn't undo — try again.");
+        }
+      });
+  }, [showToast]);
 
   const handleSwipeRight = useCallback((id: string) => {
     setPassedIds(prev => {
@@ -147,11 +185,22 @@ export default function DiscoverScreen() {
     });
     supabase.rpc('request_to_join', { p_activity_id: id })
       .then(({ data, error }) => {
-        if (error) { console.error('request_to_join failed:', error); return; }
+        if (error) {
+          console.error('request_to_join failed:', error);
+          restoreCard(id);
+          showToast("Couldn't send that join — try again.");
+          return;
+        }
+        // Server refused (host self, cancelled/started, soft-blocked). Card
+        // stays gone since we can't join it anyway, but tell the user.
+        if (data === null) {
+          showToast("Couldn't join — that activity isn't available.");
+          return;
+        }
         if (data === 'accepted')  showToast('Joined! Check My Plans.');
         if (data === 'waitlisted') showToast("Activity is full — you're on the waitlist.");
       });
-  }, [showToast]);
+  }, [restoreCard, showToast]);
 
   function handleFiltersChange(next: Filters) {
     setFilters(next);
