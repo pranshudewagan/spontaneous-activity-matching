@@ -26,7 +26,7 @@ type ActivitySummary = {
 type JoinRequest = {
   id: string;
   user_id: string;
-  email: string;
+  name: string;
   status: 'interested' | 'waitlisted';
   created_at: string;
 };
@@ -34,7 +34,7 @@ type JoinRequest = {
 type AcceptedParticipant = {
   id: string;
   user_id: string;
-  email: string;
+  name: string;
   created_at: string;
 };
 
@@ -125,7 +125,7 @@ export default function ActivityRequestsScreen() {
   function confirmRemove(participant: AcceptedParticipant) {
     Alert.alert(
       'Remove participant?',
-      `${participant.email} will be removed from the activity.`,
+      `${participant.name} will be removed from the activity.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Remove', style: 'destructive', onPress: () => handleRemove(participant.id) },
@@ -310,8 +310,8 @@ function AcceptedRow({ participant, removing, onRemove }: AcceptedRowProps) {
   return (
     <Swipeable ref={swipeRef} renderRightActions={renderRightActions} overshootRight={false}>
       <View style={[styles.requestRow, { borderColor: theme.line, backgroundColor: theme.bg }]}>
-        <ThemedText type="label" style={[styles.requestEmail, { color: theme.ink, flex: 1 }]} numberOfLines={1}>
-          {participant.email}
+        <ThemedText type="label" style={[styles.requestName, { color: theme.ink, flex: 1 }]} numberOfLines={1}>
+          {participant.name}
         </ThemedText>
         {removing ? (
           <ActivityIndicator size="small" color={theme.danger} />
@@ -337,8 +337,8 @@ function RequestRow({ request, acting, spotsLeft, onRespond }: RequestRowProps) 
   return (
     <View style={[styles.requestRow, { borderColor: theme.line }]}>
       <View style={styles.requestInfo}>
-        <ThemedText type="label" style={[styles.requestEmail, { color: theme.ink }]} numberOfLines={1}>
-          {request.email}
+        <ThemedText type="label" style={[styles.requestName, { color: theme.ink }]} numberOfLines={1}>
+          {request.name}
         </ThemedText>
         {request.status === 'waitlisted' && (
           <ThemedText style={[styles.waitlistNote, { color: theme.warning }]}>waitlisted</ThemedText>
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap:   2,
   },
-  requestEmail: {
+  requestName: {
     fontSize: 14,
   },
   waitlistNote: {

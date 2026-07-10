@@ -619,8 +619,8 @@ export type Database = {
         Args: { p_activity_id: string }
         Returns: {
           created_at: string
-          email: string
           id: string
+          name: string
           user_id: string
         }[]
       }
@@ -647,8 +647,8 @@ export type Database = {
         Args: { p_activity_id: string }
         Returns: {
           created_at: string
-          email: string
           id: string
+          name: string
           status: Database["public"]["Enums"]["join_status"]
           user_id: string
         }[]
