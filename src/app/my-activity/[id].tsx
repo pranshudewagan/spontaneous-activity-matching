@@ -114,6 +114,15 @@ export default function ActivityRequestsScreen() {
       setActing(null);
       return;
     }
+    if (data === 'stale') {
+      Alert.alert(
+        'Activity is no longer active',
+        "This activity has been cancelled or already started, so requests can't be actioned. Refreshing…",
+      );
+      setActing(null);
+      loadData(true);
+      return;
+    }
     if (data === 'accepted') setAcceptedCount(prev => prev + 1);
     setRequests(prev => prev.filter(r => r.id !== requestId));
     setActing(null);
