@@ -1,13 +1,23 @@
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmCard } from '@/components/confirm-card';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+
+type ConfirmState = {
+  title:         string;
+  body?:         string;
+  confirmLabel?: string;
+  destructive?:  boolean;
+  onConfirm:     () => void;
+  onCancel?:     () => void;
+};
 
 type AcceptMode = 'auto' | 'auto_criteria' | 'manual';
 
@@ -69,6 +79,7 @@ export default function ActivityRequestsScreen() {
   const [loading,       setLoading]       = useState(true);
   const [acting,   setActing]   = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [confirm,  setConfirm]  = useState<ConfirmState | null>(null);
 
   const focusCount = useRef(0);
   useFocusEffect(useCallback(() => {
@@ -110,17 +121,21 @@ export default function ActivityRequestsScreen() {
     });
     if (error) { console.error('host_respond_to_request failed:', error); setActing(null); return; }
     if (data === 'full') {
-      Alert.alert('Activity is full', 'Remove an accepted participant before approving someone new.');
+      setConfirm({
+        title: 'Activity is full',
+        body:  'Remove an accepted participant before approving someone new.',
+        onConfirm: () => setConfirm(null),
+      });
       setActing(null);
       return;
     }
     if (data === 'stale') {
-      Alert.alert(
-        'Activity is no longer active',
-        "This activity has been cancelled or already started, so requests can't be actioned. Refreshing…",
-      );
+      setConfirm({
+        title: 'Activity is no longer active',
+        body:  "This activity has been cancelled or already started, so requests can't be actioned. Refreshing…",
+        onConfirm: () => { setConfirm(null); loadData(true); },
+      });
       setActing(null);
-      loadData(true);
       return;
     }
     if (data === 'accepted') setAcceptedCount(prev => prev + 1);
@@ -132,14 +147,14 @@ export default function ActivityRequestsScreen() {
   }
 
   function confirmRemove(participant: AcceptedParticipant) {
-    Alert.alert(
-      'Remove participant?',
-      `${participant.name} will be removed from the activity.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => handleRemove(participant.id) },
-      ],
-    );
+    setConfirm({
+      title: 'Remove participant?',
+      body:  `${participant.name} will be removed from the activity.`,
+      confirmLabel: 'Remove',
+      destructive:  true,
+      onConfirm: () => { setConfirm(null); handleRemove(participant.id); },
+      onCancel:  () => setConfirm(null),
+    });
   }
 
   async function handleRemove(requestId: string) {
@@ -283,6 +298,16 @@ export default function ActivityRequestsScreen() {
             </>
           )}
         </ScrollView>
+      )}
+      {confirm && (
+        <ConfirmCard
+          title={confirm.title}
+          body={confirm.body}
+          confirmLabel={confirm.confirmLabel}
+          destructive={confirm.destructive}
+          onConfirm={confirm.onConfirm}
+          onCancel={confirm.onCancel}
+        />
       )}
     </SafeAreaView>
   );

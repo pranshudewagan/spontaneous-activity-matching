@@ -3,7 +3,6 @@ import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
   Pressable,
   RefreshControl,
@@ -17,10 +16,18 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ActivityCard, type ActivityCardData } from '@/components/activity-card';
 import { AppWordmark } from '@/components/app-wordmark';
 import { ActivityDetailModal, type ActivityDetail } from '@/components/activity-detail-modal';
+import { ConfirmCard } from '@/components/confirm-card';
 import { EmptyHosting, EmptyJoined } from '@/components/empty-my-plans';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+
+type PendingConfirm = {
+  title:        string;
+  body:         string;
+  confirmLabel: string;
+  onConfirm:    () => void;
+};
 
 type Tab = 'hosting' | 'joined';
 
@@ -53,6 +60,7 @@ export default function MyPlansScreen() {
   const [loadingJoined,    setLoadingJoined]    = useState(true);
   const [refreshing,       setRefreshing]       = useState(false);
   const [detailActivity,   setDetailActivity]   = useState<ActivityDetail | null>(null);
+  const [pendingConfirm,   setPendingConfirm]   = useState<PendingConfirm | null>(null);
   const joinedSwipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const focusCount      = useRef(0);
 
@@ -82,25 +90,24 @@ export default function MyPlansScreen() {
         ? 'People have already joined. It will be removed from discovery but they keep their chat.'
         : 'It will be permanently deleted.';
     const confirmText = isPast ? 'Yes, delete it' : 'Yes, cancel it';
-    Alert.alert(title, message, [
-      { text: 'No', style: 'cancel' },
-      {
-        text: confirmText,
-        style: 'destructive',
-        onPress: async () => {
-          if (hasParticipants) {
-            const { error } = await supabase.from('activities').update({ status: 'cancelled' }).eq('id', item.id);
-            if (error) { console.error(error); return; }
-          } else {
-            const { error } = await supabase.functions.invoke('delete-activity', {
-              body: { activity_id: item.id },
-            });
-            if (error) { console.error(error); return; }
-          }
-          setActivities(prev => prev.filter(a => a.id !== item.id));
-        },
+    setPendingConfirm({
+      title,
+      body: message,
+      confirmLabel: confirmText,
+      onConfirm: async () => {
+        setPendingConfirm(null);
+        if (hasParticipants) {
+          const { error } = await supabase.from('activities').update({ status: 'cancelled' }).eq('id', item.id);
+          if (error) { console.error(error); return; }
+        } else {
+          const { error } = await supabase.functions.invoke('delete-activity', {
+            body: { activity_id: item.id },
+          });
+          if (error) { console.error(error); return; }
+        }
+        setActivities(prev => prev.filter(a => a.id !== item.id));
       },
-    ]);
+    });
   };
 
   const loadHosted = async (isRefresh = false, silent = false) => {
@@ -162,18 +169,17 @@ export default function MyPlansScreen() {
         ? "You'll lose chat access. This can't be undone."
         : "You'll lose your spot. The next person on the waitlist will be offered your place."
       : "Your request will be withdrawn.";
-    Alert.alert(title, message, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: isAccepted ? 'Leave' : 'Withdraw',
-        style: 'destructive',
-        onPress: async () => {
-          const { error } = await supabase.rpc('participant_leave', { p_activity_id: item.id });
-          if (error) { console.error('participant_leave failed:', error); return; }
-          setJoinedActivities(prev => prev.filter(a => a.id !== item.id));
-        },
+    setPendingConfirm({
+      title,
+      body: message,
+      confirmLabel: isAccepted ? 'Leave' : 'Withdraw',
+      onConfirm: async () => {
+        setPendingConfirm(null);
+        const { error } = await supabase.rpc('participant_leave', { p_activity_id: item.id });
+        if (error) { console.error('participant_leave failed:', error); return; }
+        setJoinedActivities(prev => prev.filter(a => a.id !== item.id));
       },
-    ]);
+    });
   };
 
   return (
@@ -330,6 +336,16 @@ export default function MyPlansScreen() {
         activity={detailActivity}
         onClose={() => { setDetailActivity(null); loadJoined(false, true); }}
       />
+      {pendingConfirm && (
+        <ConfirmCard
+          title={pendingConfirm.title}
+          body={pendingConfirm.body}
+          confirmLabel={pendingConfirm.confirmLabel}
+          destructive
+          onConfirm={pendingConfirm.onConfirm}
+          onCancel={() => setPendingConfirm(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
